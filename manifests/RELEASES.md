@@ -4,3 +4,4 @@
 |-------------------|----------|------|
 | （bootstrap） | deps-bootstrap | 仓骨架 + header-only 试点切片 |
 | d1abf51 | deps-2026.07.22 | sqlite / gtest / spdlog（windows-x64-static-release） |
+| 1a56eb5 | deps-2026.07.22-1 | openssl / libffi（windows-x64-static-release） |
