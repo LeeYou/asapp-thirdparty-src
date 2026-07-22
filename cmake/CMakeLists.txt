@@ -1,4 +1,4 @@
-# asapp-thirdparty-src root superbuild
+﻿# asapp-thirdparty-src root superbuild
 # Usage:
 #   cmake -G Ninja -S . -B build/<slice> \
 #     --toolchain cmake/toolchains/<os>.cmake \
@@ -12,7 +12,7 @@
 cmake_minimum_required(VERSION 3.24)
 project(asapp_thirdparty_src LANGUAGES C CXX)
 
-list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}")
 include(AsAppDepOptions)
 
 message(STATUS "AsApp deps slice: ${ASAPP_DEP_OS}-${ASAPP_DEP_ARCH}-${ASAPP_DEP_LINKAGE}-${ASAPP_DEP_CONFIG}")
@@ -23,7 +23,7 @@ foreach(_pkg IN LISTS ASAPP_DEP_PACKAGES)
     if(_pkg STREQUAL "")
         continue()
     endif()
-    set(_pkg_cmake "${CMAKE_CURRENT_SOURCE_DIR}/cmake/packages/${_pkg}.cmake")
+    set(_pkg_cmake "${CMAKE_CURRENT_SOURCE_DIR}/packages/${_pkg}.cmake")
     if(NOT EXISTS "${_pkg_cmake}")
         message(FATAL_ERROR "Unknown package '${_pkg}' (missing ${_pkg_cmake})")
     endif()

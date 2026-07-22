@@ -1,4 +1,4 @@
-# 统一依赖构建选项（与制品规格 03 / 工具链 08 对齐）
+﻿# 缁熶竴渚濊禆鏋勫缓閫夐」锛堜笌鍒跺搧瑙勬牸 03 / 宸ュ叿閾?08 瀵归綈锛?
 
 if(NOT DEFINED ASAPP_DEP_OS OR ASAPP_DEP_OS STREQUAL "")
     if(WIN32)
@@ -51,10 +51,11 @@ else()
     set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
 endif()
 
-# Win7 SP1+ API 基线（包级可再覆盖）
+# Win7 SP1+ API 鍩虹嚎锛堝寘绾у彲鍐嶈鐩栵級
 if(ASAPP_DEP_OS STREQUAL "windows")
     add_compile_definitions(_WIN32_WINNT=0x0601 WINVER=0x0601)
 endif()
 
 set(ASAPP_DEP_SLICE "${ASAPP_DEP_OS}-${ASAPP_DEP_ARCH}-${ASAPP_DEP_LINKAGE}-${ASAPP_DEP_CONFIG}")
-set(ASAPP_DEP_SOURCE_ROOT "${CMAKE_SOURCE_DIR}/sources")
+set(ASAPP_DEP_SOURCE_ROOT "${CMAKE_SOURCE_DIR}/../sources")
+get_filename_component(ASAPP_DEP_SOURCE_ROOT "${ASAPP_DEP_SOURCE_ROOT}" ABSOLUTE)
