@@ -47,3 +47,5 @@ archives/**/*.tar.gz
 archives/**/*.tar.bz2
 archives/**/*.zip
 !archives/sqlite/sqlite-amalgamation-3530300.zip
+# Huge upstream trees kept local (README documents intake)
+sources/grpc/src/
