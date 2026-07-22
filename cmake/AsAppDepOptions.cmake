@@ -1,0 +1,60 @@
+# 统一依赖构建选项（与制品规格 03 / 工具链 08 对齐）
+
+if(NOT DEFINED ASAPP_DEP_OS OR ASAPP_DEP_OS STREQUAL "")
+    if(WIN32)
+        set(ASAPP_DEP_OS "windows")
+    elseif(APPLE)
+        set(ASAPP_DEP_OS "macos")
+    else()
+        set(ASAPP_DEP_OS "linux")
+    endif()
+endif()
+
+if(NOT DEFINED ASAPP_DEP_ARCH OR ASAPP_DEP_ARCH STREQUAL "")
+    if(CMAKE_SIZEOF_VOID_P EQUAL 8)
+        if(CMAKE_SYSTEM_PROCESSOR MATCHES "aarch64|ARM64|arm64")
+            set(ASAPP_DEP_ARCH "arm64")
+        elseif(CMAKE_SYSTEM_PROCESSOR MATCHES "loongarch64")
+            set(ASAPP_DEP_ARCH "loongarch64")
+        else()
+            set(ASAPP_DEP_ARCH "x64")
+        endif()
+    else()
+        set(ASAPP_DEP_ARCH "x86")
+    endif()
+endif()
+
+if(NOT DEFINED ASAPP_DEP_LINKAGE OR ASAPP_DEP_LINKAGE STREQUAL "")
+    set(ASAPP_DEP_LINKAGE "static")
+endif()
+
+if(NOT DEFINED ASAPP_DEP_CONFIG OR ASAPP_DEP_CONFIG STREQUAL "")
+    if(CMAKE_BUILD_TYPE MATCHES "Release|MinSizeRel|RelWithDebInfo")
+        set(ASAPP_DEP_CONFIG "release")
+    else()
+        set(ASAPP_DEP_CONFIG "debug")
+    endif()
+endif()
+
+set(ASAPP_DEP_OS "${ASAPP_DEP_OS}" CACHE STRING "Target OS: windows|linux|macos")
+set(ASAPP_DEP_ARCH "${ASAPP_DEP_ARCH}" CACHE STRING "Target arch: x64|x86|arm64|loongarch64")
+set(ASAPP_DEP_LINKAGE "${ASAPP_DEP_LINKAGE}" CACHE STRING "static|shared")
+set(ASAPP_DEP_CONFIG "${ASAPP_DEP_CONFIG}" CACHE STRING "debug|release")
+set(ASAPP_DEP_PACKAGES "nlohmann_json;stb" CACHE STRING "Semicolon-separated package list")
+
+set_property(CACHE ASAPP_DEP_LINKAGE PROPERTY STRINGS static shared)
+set_property(CACHE ASAPP_DEP_CONFIG PROPERTY STRINGS debug release)
+
+if(ASAPP_DEP_LINKAGE STREQUAL "shared")
+    set(BUILD_SHARED_LIBS ON CACHE BOOL "" FORCE)
+else()
+    set(BUILD_SHARED_LIBS OFF CACHE BOOL "" FORCE)
+endif()
+
+# Win7 SP1+ API 基线（包级可再覆盖）
+if(ASAPP_DEP_OS STREQUAL "windows")
+    add_compile_definitions(_WIN32_WINNT=0x0601 WINVER=0x0601)
+endif()
+
+set(ASAPP_DEP_SLICE "${ASAPP_DEP_OS}-${ASAPP_DEP_ARCH}-${ASAPP_DEP_LINKAGE}-${ASAPP_DEP_CONFIG}")
+set(ASAPP_DEP_SOURCE_ROOT "${CMAKE_SOURCE_DIR}/sources")

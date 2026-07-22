@@ -1,0 +1,123 @@
+version: 1
+project: AsApp
+dependencies:
+  - name: libcef
+    category: A
+    version: "102.0.10+gf249b2e+chromium-102.0.5005.115"
+    source_url: ""
+    source_ref: "third_party/sources/libcef/cef_binary_102.0.10+gf249b2e+chromium-102.0.5005.115_windows64"
+    source_sha256: "773e2a2d8752c53c32b43ad7d1757c13bec34e7093a3e9f9be83f17ca7f824b3"
+    license: "BSD-like"
+    commercial_use_allowed: true
+    patch_count: 0
+    patch_dir: third_party/patches/libcef
+    owner: ""
+    modules:
+      - app-gui
+    notes: "Governed GUI runtime dependency; current intake is version-locked to the Windows x64 CEF binary bundle and must pass staged SDK/runtime/resource/locale validation before app-gui enables real CEF bootstrap."
+
+  - name: fmt
+    category: B
+    version: ""
+    source_url: ""
+    source_ref: ""
+    source_sha256: ""
+    license: "MIT"
+    commercial_use_allowed: true
+    patch_count: 0
+    patch_dir: third_party/patches/fmt
+    owner: ""
+    modules:
+      - app-host
+    notes: "Planned foundational dependency for host-side formatting."
+
+  - name: spdlog
+    category: B
+    version: ""
+    source_url: ""
+    source_ref: ""
+    source_sha256: ""
+    license: "MIT"
+    commercial_use_allowed: true
+    patch_count: 0
+    patch_dir: third_party/patches/spdlog
+    owner: ""
+    modules:
+      - app-host
+    notes: "Planned foundational dependency for host-side structured logging."
+
+  - name: nlohmann/json
+    category: B
+    version: "v3.11.3"
+    source_url: "https://raw.githubusercontent.com/nlohmann/json/v3.11.3/single_include/nlohmann/json.hpp"
+    source_ref: "v3.11.3"
+    source_sha256: "9bea4c8066ef4a1c206b2be5a36302f8926f7fdc6087af5d20b417d0cf103ea6"
+    license: "MIT"
+    commercial_use_allowed: true
+    patch_count: 0
+    patch_dir: patches/nlohmann
+    owner: ""
+    modules:
+      - app-service
+    notes: "Governed single-header JSON dependency for app-service serialization."
+
+  - name: boost
+    category: B
+    version: "1.90.0"
+    source_url: "https://archives.boost.io/release/1.90.0/source/boost_1_90_0.zip"
+    source_ref: "third_party/sources/boost/boost_1_90_0"
+    source_sha256: "9f67e625338215f240a52ea487a9f100c01cedd4a35ffd8b711eb692cbdac708"
+    license: "BSL-1.0"
+    commercial_use_allowed: true
+    patch_count: 0
+    patch_dir: third_party/patches/boost
+    owner: ""
+    modules:
+      - app-service
+    notes: "Governed transport dependency; app-service currently constrains usage to the Asio and Beast subset behind explicit build flags."
+
+  - name: openssl
+    category: B
+    version: "3.5.6"
+    source_url: "https://www.openssl.org/source/openssl-3.5.6.tar.gz"
+    source_ref: "third_party/sources/openssl/openssl-3.5.6"
+    source_sha256: "0c0511433a574c68e2b2dcfe2f375243137867d583bcc0d5e76b4d46876fa917"
+    license: "Apache-2.0"
+    commercial_use_allowed: true
+    patch_count: 0
+    patch_dir: third_party/patches/openssl
+    owner: ""
+    modules:
+      - app-service
+    notes: "Governed TLS dependency for app-service; staged headers and import libraries gate the Boost.Beast TLS path."
+
+  - name: libffi
+    category: B
+    version: "3.4.6"
+    source_url: "https://github.com/libffi/libffi/releases/download/v3.4.6/libffi-3.4.6.tar.gz"
+    source_ref: "third_party/sources/libffi/libffi-3.4.6"
+    source_sha256: ""
+    license: "MIT"
+    commercial_use_allowed: true
+    patch_count: 0
+    patch_dir: third_party/patches/libffi
+    owner: ""
+    modules:
+      - app-host
+    notes: "Governed dynamic invocation dependency for BusinessCapabilityEngine in app-host; used for libffi-based C function calling at runtime. Source intake and staged build gated by ASAPP_ENABLE_LIBFFI CMake flag."
+
+  - name: sqlite
+    category: B
+    version: "3.53.3"
+    source_url: "https://www.sqlite.org/2026/sqlite-amalgamation-3530300.zip"
+    source_ref: "sources/sqlite/src"
+    source_sha256: "646421e12aac110282ef8cc68f1a62d4bb15fc7b8f09da0b53e29ee690500431"
+    license: "Public Domain"
+    commercial_use_allowed: true
+    patch_count: 0
+    patch_dir: patches/sqlite
+    owner: ""
+    modules:
+      - common/config
+      - app-host
+    notes: "Governed SQLite amalgamation for als_config.db; built as static lib asapp_sqlite3 via cmake/AsAppSqlite.cmake. Business modules must not open the DB directly."

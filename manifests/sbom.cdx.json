@@ -1,0 +1,272 @@
+{
+    "bomFormat": "CycloneDX",
+    "specVersion": "1.4",
+    "serialNumber": "urn:uuid:a1b2c3d4-e5f6-7890-abcd-ef1234567890",
+    "version": 1,
+    "metadata": {
+        "timestamp": "2026-05-26T12:00:00Z",
+        "tools": [
+            {
+                "vendor": "AsApp",
+                "name": "asapp-sbom-generator",
+                "version": "1.0.0"
+            }
+        ],
+        "component": {
+            "type": "application",
+            "name": "AsApp",
+            "version": "0.1.0",
+            "description": "AsApp enterprise desktop client for branch terminal management",
+            "licenses": [
+                {
+                    "license": {
+                        "id": "LicenseRef-Proprietary",
+                        "name": "Proprietary"
+                    }
+                }
+            ]
+        }
+    },
+    "components": [
+        {
+            "type": "framework",
+            "name": "libcef",
+            "version": "102.0.10+gf249b2e+chromium-102.0.5005.115",
+            "description": "Chromium Embedded Framework for GUI runtime",
+            "scope": "required",
+            "hashes": [
+                {
+                    "alg": "SHA-256",
+                    "content": "773e2a2d8752c53c32b43ad7d1757c13bec34e7093a3e9f9be83f17ca7f824b3"
+                }
+            ],
+            "licenses": [
+                {
+                    "license": {
+                        "id": "BSD-3-Clause",
+                        "name": "BSD-like"
+                    }
+                }
+            ],
+            "purl": "pkg:generic/libcef@102.0.10",
+            "properties": [
+                {
+                    "name": "asapp:category",
+                    "value": "A"
+                },
+                {
+                    "name": "asapp:modules",
+                    "value": "app-gui"
+                },
+                {
+                    "name": "asapp:source_ref",
+                    "value": "third_party/sources/libcef/cef_binary_102.0.10+gf249b2e+chromium-102.0.5005.115_windows64"
+                }
+            ]
+        },
+        {
+            "type": "library",
+            "name": "fmt",
+            "version": "",
+            "description": "Formatting library for host-side formatting",
+            "scope": "optional",
+            "licenses": [
+                {
+                    "license": {
+                        "id": "MIT"
+                    }
+                }
+            ],
+            "purl": "pkg:generic/fmt",
+            "properties": [
+                {
+                    "name": "asapp:category",
+                    "value": "B"
+                },
+                {
+                    "name": "asapp:modules",
+                    "value": "app-host"
+                },
+                {
+                    "name": "asapp:status",
+                    "value": "planned"
+                }
+            ]
+        },
+        {
+            "type": "library",
+            "name": "spdlog",
+            "version": "",
+            "description": "Structured logging library for host-side logging",
+            "scope": "optional",
+            "licenses": [
+                {
+                    "license": {
+                        "id": "MIT"
+                    }
+                }
+            ],
+            "purl": "pkg:generic/spdlog",
+            "properties": [
+                {
+                    "name": "asapp:category",
+                    "value": "B"
+                },
+                {
+                    "name": "asapp:modules",
+                    "value": "app-host"
+                },
+                {
+                    "name": "asapp:status",
+                    "value": "planned"
+                }
+            ]
+        },
+        {
+            "type": "library",
+            "name": "nlohmann-json",
+            "version": "3.11.3",
+            "description": "Single-header JSON library for app-service serialization",
+            "scope": "required",
+            "hashes": [
+                {
+                    "alg": "SHA-256",
+                    "content": "9bea4c8066ef4a1c206b2be5a36302f8926f7fdc6087af5d20b417d0cf103ea6"
+                }
+            ],
+            "licenses": [
+                {
+                    "license": {
+                        "id": "MIT"
+                    }
+                }
+            ],
+            "purl": "pkg:generic/nlohmann-json@3.11.3",
+            "externalReferences": [
+                {
+                    "type": "distribution",
+                    "url": "https://raw.githubusercontent.com/nlohmann/json/v3.11.3/single_include/nlohmann/json.hpp"
+                }
+            ],
+            "properties": [
+                {
+                    "name": "asapp:category",
+                    "value": "B"
+                },
+                {
+                    "name": "asapp:modules",
+                    "value": "app-service"
+                }
+            ]
+        },
+        {
+            "type": "library",
+            "name": "boost",
+            "version": "1.90.0",
+            "description": "C++ libraries; app-service constrains usage to Asio and Beast subset",
+            "scope": "required",
+            "hashes": [
+                {
+                    "alg": "SHA-256",
+                    "content": "9f67e625338215f240a52ea487a9f100c01cedd4a35ffd8b711eb692cbdac708"
+                }
+            ],
+            "licenses": [
+                {
+                    "license": {
+                        "id": "BSL-1.0"
+                    }
+                }
+            ],
+            "purl": "pkg:generic/boost@1.90.0",
+            "externalReferences": [
+                {
+                    "type": "distribution",
+                    "url": "https://archives.boost.io/release/1.90.0/source/boost_1_90_0.zip"
+                }
+            ],
+            "properties": [
+                {
+                    "name": "asapp:category",
+                    "value": "B"
+                },
+                {
+                    "name": "asapp:modules",
+                    "value": "app-service"
+                }
+            ]
+        },
+        {
+            "type": "library",
+            "name": "openssl",
+            "version": "3.5.6",
+            "description": "TLS library for app-service secure transport",
+            "scope": "required",
+            "hashes": [
+                {
+                    "alg": "SHA-256",
+                    "content": "0c0511433a574c68e2b2dcfe2f375243137867d583bcc0d5e76b4d46876fa917"
+                }
+            ],
+            "licenses": [
+                {
+                    "license": {
+                        "id": "Apache-2.0"
+                    }
+                }
+            ],
+            "purl": "pkg:generic/openssl@3.5.6",
+            "externalReferences": [
+                {
+                    "type": "distribution",
+                    "url": "https://www.openssl.org/source/openssl-3.5.6.tar.gz"
+                }
+            ],
+            "properties": [
+                {
+                    "name": "asapp:category",
+                    "value": "B"
+                },
+                {
+                    "name": "asapp:modules",
+                    "value": "app-service"
+                }
+            ]
+        },
+        {
+            "type": "library",
+            "name": "libffi",
+            "version": "3.4.6",
+            "description": "Foreign function interface library for dynamic C function invocation in BusinessCapabilityEngine",
+            "scope": "optional",
+            "licenses": [
+                {
+                    "license": {
+                        "id": "MIT"
+                    }
+                }
+            ],
+            "purl": "pkg:generic/libffi@3.4.6",
+            "externalReferences": [
+                {
+                    "type": "distribution",
+                    "url": "https://github.com/libffi/libffi/releases/download/v3.4.6/libffi-3.4.6.tar.gz"
+                }
+            ],
+            "properties": [
+                {
+                    "name": "asapp:category",
+                    "value": "B"
+                },
+                {
+                    "name": "asapp:modules",
+                    "value": "app-host"
+                },
+                {
+                    "name": "asapp:status",
+                    "value": "staged"
+                }
+            ]
+        }
+    ]
+}

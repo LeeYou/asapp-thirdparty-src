@@ -1,0 +1,3 @@
+[submodule "prebuilt"]
+	path = prebuilt
+	url = https://github.com/LeeYou/asapp-thirdparty-prebuilt.git
