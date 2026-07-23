@@ -8,5 +8,6 @@
 | 167d86f | deps-2026.07.22-2 | grpc 1.67.1（windows-x64-static-release，历史） |
 | debb513 | deps-2026.07.22-3 | boost 1.90.0 header-only（windows-x64-static-release，历史） |
 | 4760218 | deps-2026.07.22-4 | libcef shared-runtime（windows-x64-shared-release，历史） |
-| c1472d4 | deps-2026.07.23-5 | Windows x86 四切片 + static gRPC；libcef x86 shared-release；gRPC shared 暂缓 |
-| db6955a | deps-2026.07.23-6 | **移除全部 windows-x64 切片**；仅保留 Win32 主交付四切片 |
+| c1472d4 | deps-2026.07.23-5 | Windows x86 四切片 + static gRPC；libcef x86 shared-release |
+| db6955a | deps-2026.07.23-6 | 移除全部 windows-x64 切片；仅保留 Win32 主交付四切片 |
+| （本仓 HEAD） | deps-2026.07.23-7 | 补齐 gRPC **shared** Win32 debug/release（upb STATIC + TraceFlag GRPC_DLL + PATH for plugins） |

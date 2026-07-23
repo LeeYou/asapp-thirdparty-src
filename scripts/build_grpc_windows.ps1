@@ -89,6 +89,12 @@ Write-Host "  Build  : $BuildRoot"
 Write-Host "  Install: $InstallRoot"
 Write-Host "  Slice  : $Slice"
 
+# Win32/x64 shared：补齐 upb STATIC（见 patches/grpc/README.md）
+if ($Linkage -eq "shared")
+{
+    & (Join-Path $PSScriptRoot "apply_grpc_win32_shared_upb_static.ps1") -SourceRoot $SourceRoot
+}
+
 New-Item -ItemType Directory -Force -Path $BuildRoot, $InstallRoot | Out-Null
 $LogDir = Join-Path $BuildRoot "logs"
 New-Item -ItemType Directory -Force -Path $LogDir | Out-Null
@@ -97,7 +103,7 @@ $ConfigureScript = Join-Path $LogDir "configure.cmd"
 $BuildScript = Join-Path $LogDir "build.cmd"
 $InstallScript = Join-Path $LogDir "install.cmd"
 
-$CmakeArgs = @(
+$CmakeArgList = @(
     "-G", "Ninja",
     "-S", "`"$SourceRoot`"",
     "-B", "`"$BuildRoot`"",
@@ -125,7 +131,13 @@ $CmakeArgs = @(
     # Win7 SP1 API 面（与 08 / 制品 windows_min_os: win7 对齐）
     "`"-DCMAKE_C_FLAGS=/D_WIN32_WINNT=0x0601 /DWINVER=0x0601`"",
     "`"-DCMAKE_CXX_FLAGS=/D_WIN32_WINNT=0x0601 /DWINVER=0x0601`""
-) -join " "
+)
+# shared：关闭 protobuf 自带 libupb，避免与 vendored upb 符号冲突（grpc#35794）
+if ($Linkage -eq "shared")
+{
+    $CmakeArgList += "-Dprotobuf_BUILD_LIBUPB=OFF"
+}
+$CmakeArgs = $CmakeArgList -join " "
 
 @"
 @echo off
@@ -137,6 +149,8 @@ exit /b %ERRORLEVEL%
 @"
 @echo off
 call "$VsDevCmdPath" -arch=$VsArch -host_arch=x64 || exit /b 1
+REM shared：protoc 插件依赖构建目录中的 DLL（0xC0000135 = STATUS_DLL_NOT_FOUND）
+set "PATH=$BuildRoot;$BuildRoot\bin;%PATH%"
 cmake --build "$BuildRoot" --parallel $Jobs
 exit /b %ERRORLEVEL%
 "@ | Set-Content -Encoding ASCII $BuildScript
@@ -144,6 +158,7 @@ exit /b %ERRORLEVEL%
 @"
 @echo off
 call "$VsDevCmdPath" -arch=$VsArch -host_arch=x64 || exit /b 1
+set "PATH=$BuildRoot;$BuildRoot\bin;%PATH%"
 cmake --install "$BuildRoot"
 exit /b %ERRORLEVEL%
 "@ | Set-Content -Encoding ASCII $InstallScript

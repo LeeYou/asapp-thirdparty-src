@@ -53,6 +53,12 @@ foreach ($link in $Linkages)
             if (Test-Path $dst) { Remove-Item -Recurse -Force $dst }
             New-Item -ItemType Directory -Force -Path (Split-Path $dst -Parent) | Out-Null
             robocopy (Join-Path $dist "grpc") $dst /E /NFL /NDL /NJH /NJS /NC /NS | Out-Null
+            # robocopy: 0-7 均为成功类退出码
+            if ($LASTEXITCODE -ge 8)
+            {
+                throw "robocopy failed for $slice grpc (exit=$LASTEXITCODE)"
+            }
+            $global:LASTEXITCODE = 0
             Write-Host "Synced grpc -> $dst"
         }
     }
