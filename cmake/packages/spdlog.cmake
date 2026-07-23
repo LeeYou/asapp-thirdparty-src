@@ -19,7 +19,8 @@ target_include_directories(spdlog INTERFACE
     "$<BUILD_INTERFACE:${_SPDLOG_INC}>"
     "$<INSTALL_INTERFACE:include>"
 )
-target_compile_definitions(spdlog INTERFACE SPDLOG_HEADER_ONLY)
+# 勿定义 SPDLOG_HEADER_ONLY：common.h 在未定义 SPDLOG_COMPILED_LIB 时会自行 #define；
+# 命令行再传会导致 MSVC C4005，CEF /WX 下升为 C2220。
 
 install(DIRECTORY "${_SPDLOG_INC}/spdlog" DESTINATION include)
 install(TARGETS spdlog EXPORT spdlogTargets)
