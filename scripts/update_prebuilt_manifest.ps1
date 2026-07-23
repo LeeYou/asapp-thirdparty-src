@@ -1,18 +1,22 @@
-#Requires -Version 5.1
+﻿#Requires -Version 5.1
 <#
 .SYNOPSIS
   扫描制品仓切片目录，重写 MANIFEST.yaml（保留 schema/defaults，刷新 packages 切片列表）。
 #>
 param(
-    [string]$PrebuiltRoot = "E:\work\Demo\Demo\Demo004\asapp-thirdparty-prebuilt",
+    [string]$PrebuiltRoot = "",
     [string]$Tag = "",
     [string]$SourceCommit = ""
 )
 
 $ErrorActionPreference = "Stop"
-if (-not (Test-Path (Join-Path $PrebuiltRoot "MANIFEST.yaml")))
+. (Join-Path $PSScriptRoot "AsAppDepCommon.ps1")
+if ([string]::IsNullOrWhiteSpace($PrebuiltRoot)) {
+    $PrebuiltRoot = Resolve-AsAppDepPrebuiltRoot
+}
+if (-not $PrebuiltRoot -or -not (Test-Path (Join-Path $PrebuiltRoot "MANIFEST.yaml")))
 {
-    throw "MANIFEST.yaml not found under $PrebuiltRoot"
+    throw "MANIFEST.yaml not found. Pass -PrebuiltRoot or set ASAPP_PREBUILT_ROOT."
 }
 
 # 收集 slice/pkg
@@ -63,7 +67,7 @@ if (-not $Tag)
 }
 if (-not $SourceCommit)
 {
-    $srcRepo = "E:\work\Demo\Demo\Demo003\asapp-thirdparty-src"
+    $srcRepo = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
     if (Test-Path (Join-Path $srcRepo ".git"))
     {
         $SourceCommit = (git -C $srcRepo rev-parse HEAD).Trim()

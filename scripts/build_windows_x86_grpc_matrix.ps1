@@ -4,7 +4,7 @@
   为已有 openssl 的 windows-x86 四切片补编 gRPC（高并发）。
 #>
 param(
-    [string]$PrebuiltRoot = "E:\work\Demo\Demo\Demo004\asapp-thirdparty-prebuilt",
+    [string]$PrebuiltRoot = "",
     [switch]$SyncToPrebuilt,
     [int]$Jobs = 0,
     [ValidateSet("all", "static", "shared")]
@@ -18,7 +18,12 @@ $RepoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 Set-Location $RepoRoot
 . (Join-Path $PSScriptRoot "AsAppDepCommon.ps1")
 $Jobs = Get-AsAppDepParallelJobs -Jobs $Jobs
-
+if ([string]::IsNullOrWhiteSpace($PrebuiltRoot)) {
+    $PrebuiltRoot = Resolve-AsAppDepPrebuiltRoot
+}
+if ($SyncToPrebuilt -and -not $PrebuiltRoot) {
+    throw "Prebuilt root not found. Pass -PrebuiltRoot or set ASAPP_PREBUILT_ROOT."
+}
 $Linkages = @("static", "shared")
 $Configs = @("debug", "release")
 if ($LinkageFilter -ne "all") { $Linkages = @($LinkageFilter) }
