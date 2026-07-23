@@ -50,3 +50,16 @@ archives/**/*.zip
 # Huge upstream trees kept local (README documents intake)
 sources/grpc/src/
 sources/boost/src/
+
+# 本地工具二进制（README 保留）
+tool/**/jom.exe
+tool/**/*.exe
+!tool/**/README.md
+
+
+# 大归档本地投放（README 索引入库）
+archives/**/*.zip
+archives/**/*.tar.gz
+archives/**/*.tgz
+!archives/**/README.md
+

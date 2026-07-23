@@ -17,13 +17,18 @@ param(
     [string]$OpenSslRoot = "",
     [string]$InstallRoot = "",
     [string]$BuildRoot = "",
-    [string]$VsDevCmdPath = "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat",
-    [int]$Jobs = 8
+    [string]$VsDevCmdPath = "",
+    [int]$Jobs = 0
 )
 
 $ErrorActionPreference = "Stop"
 $RepoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
 Set-Location $RepoRoot
+. (Join-Path $PSScriptRoot "AsAppDepCommon.ps1")
+$Jobs = Get-AsAppDepParallelJobs -Jobs $Jobs
+if ([string]::IsNullOrWhiteSpace($VsDevCmdPath)) {
+    $VsDevCmdPath = Resolve-AsAppDepVsDevCmd
+}
 
 $Os = "windows"
 $Slice = "{0}-{1}-{2}-{3}" -f $Os, $Arch, $Linkage, $Config
@@ -116,7 +121,10 @@ $CmakeArgs = @(
     "-DgRPC_PROTOBUF_PROVIDER=module",
     "-Dprotobuf_BUILD_TESTS=OFF",
     "-Dprotobuf_INSTALL=ON",
-    "-DCMAKE_CXX_STANDARD=17"
+    "-DCMAKE_CXX_STANDARD=17",
+    # Win7 SP1 API 面（与 08 / 制品 windows_min_os: win7 对齐）
+    "`"-DCMAKE_C_FLAGS=/D_WIN32_WINNT=0x0601 /DWINVER=0x0601`"",
+    "`"-DCMAKE_CXX_FLAGS=/D_WIN32_WINNT=0x0601 /DWINVER=0x0601`""
 ) -join " "
 
 @"

@@ -1,9 +1,9 @@
 # archives/boost — 受控归档索引
 
 - version: **1.90.0**
-- source_url: https://archives.boost.io/release/1.90.0/source/boost_1_90_0.zip
-- source_sha256: `9f67e625338215f240a52ea487a9f100c01cedd4a35ffd8b711eb692cbdac708`
-- 落库路径（源码仓本地，不入库）：`sources/boost/src/`（strip 后含 `boost/asio.hpp`）
-- 制品：header-only 切片 `windows-x64-static-release/boost`（见 `scripts/sync_boost_headers.ps1`）
+- archive: `boost_1_90_0.zip`（已放入本目录）
+- source_sha256: `bdc79f179d1a4a60c10fe764172946d0eeafad65e576a8703c4d89d49949973c`
+- 解压：`.\scripts\extract_archive.ps1 -Package boost` → `sources/boost/src/`（含 `boost/asio.hpp`，gitignore）
+- 制品：header-only 切片（`scripts/sync_boost_headers.ps1` / `build.ps1 -Packages boost`）
 
-归档 zip 本体放企业制品库；本目录仅保留 README 索引（大文件 gitignore）。
+说明：历史上官方 archives.boost.io 另一镜像的 sha256 可能不同；以本仓实测哈希为准。

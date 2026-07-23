@@ -1,14 +1,17 @@
 #Requires -Version 5.1
 <#
 .SYNOPSIS
-  将官方 CEF binary bundle 打包为制品规格切片 windows-x64-shared-release/libcef。
+  将官方 CEF binary bundle 打包为制品规格切片 windows-{x64|x86}-shared-release/libcef。
 
 .DESCRIPTION
   CEF 以官方预编译包为主（非 Ninja 重编）。输出适配器布局（include/Release/Resources/locales
   + sdk 用 cmake/libcef_dll），并生成 AsApp::libcef 的 Config。
   默认排除 cef_sandbox.lib（体积大且 app-gui 当前 USE_SANDBOX=OFF）。
+  官方包通常仅提供 Release runtime → 对应 shared-release 切片。
 #>
 param(
+    [ValidateSet("x64", "x86")]
+    [string]$Arch = "x64",
     [string]$BundleRoot = "",
     [Parameter(Mandatory = $true)]
     [string]$DestRoot,
@@ -17,8 +20,9 @@ param(
 )
 
 $ErrorActionPreference = "Stop"
+$BundleSuffix = if ($Arch -eq "x86") { "windows32" } else { "windows64" }
 
-function Resolve-BundleRoot([string]$Hint)
+function Resolve-BundleRoot([string]$Hint, [string]$Suffix)
 {
     if ($Hint -and (Test-Path (Join-Path $Hint "include\cef_app.h")))
     {
@@ -41,7 +45,7 @@ function Resolve-BundleRoot([string]$Hint)
             return (Resolve-Path $Root).Path
         }
         $Candidate = Get-ChildItem -LiteralPath $Root -Directory -ErrorAction SilentlyContinue |
-            Where-Object { $_.Name -like "cef_binary_*_windows64" } |
+            Where-Object { $_.Name -like "cef_binary_*_$Suffix" } |
             Sort-Object Name |
             Select-Object -First 1
         if ($Candidate -and (Test-Path (Join-Path $Candidate.FullName "include\cef_app.h")))
@@ -49,7 +53,7 @@ function Resolve-BundleRoot([string]$Hint)
             return $Candidate.FullName
         }
     }
-    throw "CEF windows64 bundle not found. Pass -BundleRoot or place under sources/libcef/src."
+    throw "CEF $Suffix bundle not found. Pass -BundleRoot or place under sources/libcef/src."
 }
 
 function Copy-Tree([string]$Source, [string]$Dest)
@@ -68,7 +72,8 @@ function Copy-Tree([string]$Source, [string]$Dest)
     }
 }
 
-$Bundle = Resolve-BundleRoot $BundleRoot
+$Bundle = Resolve-BundleRoot $BundleRoot $BundleSuffix
+Write-Host "Arch:   $Arch ($BundleSuffix)"
 Write-Host "Bundle: $Bundle"
 Write-Host "Dest:   $DestRoot"
 

@@ -16,11 +16,14 @@ param(
     [string]$BuildRoot = "",
     [string]$VsDevCmdPath = "",
     [string]$PerlPath = "",
-    [string]$NMakePath = ""
+    [string]$NMakePath = "",
+    [int]$Jobs = 0
 )
 
 $ErrorActionPreference = "Stop"
 $RepoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
+. (Join-Path $PSScriptRoot "AsAppDepCommon.ps1")
+$Jobs = Get-AsAppDepParallelJobs -Jobs $Jobs
 
 if ([string]::IsNullOrWhiteSpace($SourceRoot)) {
     $SourceRoot = Join-Path $RepoRoot "sources\openssl\src"
@@ -45,32 +48,39 @@ function Resolve-Abs([string]$PathText) {
 }
 
 if ([string]::IsNullOrWhiteSpace($PerlPath)) {
-    $perlCmd = Get-Command perl -ErrorAction SilentlyContinue
-    if ($perlCmd) {
-        $PerlPath = $perlCmd.Source
-    } else {
-        $PerlPath = "C:\Program Files\Git\usr\bin\perl.exe"
-    }
+    $PerlPath = Resolve-AsAppDepTool -Name "perl" -ExtraCandidates @(
+        "C:\Strawberry\perl\bin\perl.exe",
+        "C:\Program Files\Git\usr\bin\perl.exe"
+    )
+}
+if ([string]::IsNullOrWhiteSpace($PerlPath) -or -not (Test-Path $PerlPath)) {
+    throw "perl not found. Install Strawberry/Git perl or place under tool/perl/"
 }
 if ([string]::IsNullOrWhiteSpace($VsDevCmdPath)) {
-    $vsCandidates = @(
-        "C:\Program Files\Microsoft Visual Studio\2022\Enterprise\Common7\Tools\VsDevCmd.bat",
-        "C:\Program Files\Microsoft Visual Studio\2022\Professional\Common7\Tools\VsDevCmd.bat",
-        "C:\Program Files\Microsoft Visual Studio\2022\Community\Common7\Tools\VsDevCmd.bat"
-    )
-    $VsDevCmdPath = $vsCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+    $VsDevCmdPath = Resolve-AsAppDepVsDevCmd
 }
 if ([string]::IsNullOrWhiteSpace($VsDevCmdPath) -or -not (Test-Path $VsDevCmdPath)) {
-    throw "VsDevCmd.bat not found"
+    throw "VsDevCmd.bat not found. See tool/README.md"
 }
-if ([string]::IsNullOrWhiteSpace($NMakePath) -or -not (Test-Path $NMakePath)) {
-    $nmakeCandidates = Get-ChildItem "C:\Program Files\Microsoft Visual Studio\2022" -Recurse -Filter nmake.exe -ErrorAction SilentlyContinue |
-        Where-Object { $_.FullName -match "Hostx64\\x64\\nmake.exe" } |
-        Sort-Object FullName -Descending
-    if (-not $nmakeCandidates) {
-        throw "nmake.exe not found"
+# 优先 jom（并行），否则 nmake
+$MakeTool = Resolve-AsAppDepTool -Name "jom"
+$MakeArgs = ""
+if ($MakeTool) {
+    $MakeArgs = "-j $Jobs"
+    Write-Host "OpenSSL make: jom ($MakeTool) $MakeArgs"
+} else {
+    if ([string]::IsNullOrWhiteSpace($NMakePath) -or -not (Test-Path $NMakePath)) {
+        $nmakeCandidates = Get-ChildItem "C:\Program Files\Microsoft Visual Studio\2022" -Recurse -Filter nmake.exe -ErrorAction SilentlyContinue |
+            Where-Object { $_.FullName -match "Hostx64\\x64\\nmake.exe" } |
+            Sort-Object FullName -Descending
+        if (-not $nmakeCandidates) {
+            throw "nmake.exe not found (and tool/jom/jom.exe missing). See tool/README.md"
+        }
+        $MakeTool = $nmakeCandidates[0].FullName
+    } else {
+        $MakeTool = $NMakePath
     }
-    $NMakePath = $nmakeCandidates[0].FullName
+    Write-Host "OpenSSL make: nmake (single-thread; place tool/jom/jom.exe for parallel)"
 }
 
 $SourceRoot = Resolve-Abs $SourceRoot
@@ -78,7 +88,7 @@ $InstallRoot = Resolve-Abs $InstallRoot
 $BuildRoot = Resolve-Abs $BuildRoot
 $PerlPath = Resolve-Abs $PerlPath
 $VsDevCmdPath = Resolve-Abs $VsDevCmdPath
-$NMakePath = Resolve-Abs $NMakePath
+$MakeTool = Resolve-Abs $MakeTool
 
 # 浣跨敤骞插噣鎷疯礉鏋勫缓锛岄伩鍏嶆薄鏌?sources
 $WorkSrc = Join-Path $BuildRoot "src"
@@ -106,9 +116,9 @@ if errorlevel 1 exit /b 1
 cd /d "$WorkSrc"
 "$PerlPath" Configure $cfgOpts --prefix="$InstallRoot" --openssldir="$InstallRoot\ssl"
 if errorlevel 1 exit /b 1
-"$NMakePath"
+"$MakeTool" $MakeArgs
 if errorlevel 1 exit /b 1
-"$NMakePath" install_sw
+"$MakeTool" install_sw
 if errorlevel 1 exit /b 1
 "@
 

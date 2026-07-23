@@ -1,4 +1,4 @@
-﻿# libffi — Windows x64 静态库（自维护最小 CMake；非上游官方 Windows 主路径）
+﻿# libffi — Windows x64/x86 静态/动态库（自维护最小 CMake；非上游官方 Windows 主路径）
 # 源码期望：sources/libffi/src（上游解压根）
 
 set(_FFI_ROOT "${ASAPP_DEP_SOURCE_ROOT}/libffi/src")
@@ -9,15 +9,52 @@ endif()
 if(NOT WIN32)
     message(FATAL_ERROR "cmake/packages/libffi.cmake currently supports Windows only; use autotools on POSIX")
 endif()
-if(NOT ASAPP_DEP_ARCH STREQUAL "x64")
-    message(FATAL_ERROR "libffi package recipe currently supports windows x64 only (arch=${ASAPP_DEP_ARCH})")
+if(NOT ASAPP_DEP_ARCH STREQUAL "x64" AND NOT ASAPP_DEP_ARCH STREQUAL "x86")
+    message(FATAL_ERROR "libffi package recipe supports windows x64/x86 only (arch=${ASAPP_DEP_ARCH})")
+endif()
+
+set(_FFI_IS_X86 FALSE)
+if(ASAPP_DEP_ARCH STREQUAL "x86")
+    set(_FFI_IS_X86 TRUE)
 endif()
 
 set(_FFI_GEN_DIR "${CMAKE_CURRENT_BINARY_DIR}/libffi_gen")
 file(MAKE_DIRECTORY "${_FFI_GEN_DIR}")
 
-# 最小 fficonfig.h（x64 Windows / MSVC ABI / clang-cl）
-file(WRITE "${_FFI_GEN_DIR}/fficonfig.h" [[
+if(_FFI_IS_X86)
+    set(_FFI_SIZEOF_SIZE_T 4)
+    set(_FFI_TARGET "X86_WIN32")
+    set(_FFI_ASM_FILE "${_FFI_ROOT}/src/x86/sysv_intel.S")
+    set(_FFI_ASM_DEFINE "-DX86_WIN32")
+    set(_FFI_ASM_TRIPLE "i686-pc-windows-msvc")
+    set(_FFI_C_SOURCES
+        "${_FFI_ROOT}/src/prep_cif.c"
+        "${_FFI_ROOT}/src/types.c"
+        "${_FFI_ROOT}/src/raw_api.c"
+        "${_FFI_ROOT}/src/java_raw_api.c"
+        "${_FFI_ROOT}/src/closures.c"
+        "${_FFI_ROOT}/src/tramp.c"
+        "${_FFI_ROOT}/src/x86/ffi.c"
+    )
+else()
+    set(_FFI_SIZEOF_SIZE_T 8)
+    set(_FFI_TARGET "X86_WIN64")
+    set(_FFI_ASM_FILE "${_FFI_ROOT}/src/x86/win64.S")
+    set(_FFI_ASM_DEFINE "-DX86_WIN64")
+    set(_FFI_ASM_TRIPLE "x86_64-pc-windows-msvc")
+    set(_FFI_C_SOURCES
+        "${_FFI_ROOT}/src/prep_cif.c"
+        "${_FFI_ROOT}/src/types.c"
+        "${_FFI_ROOT}/src/raw_api.c"
+        "${_FFI_ROOT}/src/java_raw_api.c"
+        "${_FFI_ROOT}/src/closures.c"
+        "${_FFI_ROOT}/src/tramp.c"
+        "${_FFI_ROOT}/src/x86/ffiw64.c"
+    )
+endif()
+
+# 最小 fficonfig.h
+file(WRITE "${_FFI_GEN_DIR}/fficonfig.h" "
 #ifdef _MSC_VER
 # define HAVE_ALLOCA 1
 # define alloca _alloca
@@ -40,14 +77,14 @@ file(WRITE "${_FFI_GEN_DIR}/fficonfig.h" [[
 #define HAVE_LONG_DOUBLE 0
 #define SIZEOF_DOUBLE 8
 #define SIZEOF_LONG_DOUBLE 8
-#define SIZEOF_SIZE_T 8
+#define SIZEOF_SIZE_T ${_FFI_SIZEOF_SIZE_T}
 #define FFI_MMAP_EXEC_WRIT 1
 #ifdef LIBFFI_ASM
 # define FFI_HIDDEN(name)
 #else
 # define FFI_HIDDEN
 #endif
-]])
+")
 
 set(_FFI_H_IN "${_FFI_ROOT}/include/ffi.h.in")
 set(_FFI_H_OUT "${_FFI_GEN_DIR}/ffi.h")
@@ -56,7 +93,7 @@ if(EXISTS "${_FFI_ROOT}/include/ffi.h")
 elseif(EXISTS "${_FFI_H_IN}")
     file(READ "${_FFI_H_IN}" _ffi_h_content)
     string(REPLACE "@VERSION@" "3.4.6" _ffi_h_content "${_ffi_h_content}")
-    string(REPLACE "@TARGET@" "X86_WIN64" _ffi_h_content "${_ffi_h_content}")
+    string(REPLACE "@TARGET@" "${_FFI_TARGET}" _ffi_h_content "${_ffi_h_content}")
     string(REPLACE "@HAVE_LONG_DOUBLE@" "0" _ffi_h_content "${_ffi_h_content}")
     string(REPLACE "@HAVE_LONG_DOUBLE_VARIANT@" "0" _ffi_h_content "${_ffi_h_content}")
     string(REPLACE "@FFI_EXEC_TRAMPOLINE_TABLE@" "0" _ffi_h_content "${_ffi_h_content}")
@@ -67,49 +104,65 @@ endif()
 
 configure_file("${_FFI_ROOT}/src/x86/ffitarget.h" "${_FFI_GEN_DIR}/ffitarget.h" COPYONLY)
 
-set(_FFI_SOURCES
-    "${_FFI_ROOT}/src/prep_cif.c"
-    "${_FFI_ROOT}/src/types.c"
-    "${_FFI_ROOT}/src/raw_api.c"
-    "${_FFI_ROOT}/src/java_raw_api.c"
-    "${_FFI_ROOT}/src/closures.c"
-    "${_FFI_ROOT}/src/tramp.c"
-    "${_FFI_ROOT}/src/x86/ffiw64.c"
-)
-
-# 汇编：clang 汇编 win64.S（gas）；避免 clang-cl 直接吃 .S
 set(_FFI_ASM_OBJ "")
-if(EXISTS "${_FFI_ROOT}/src/x86/win64.S")
-    find_program(_CLANG_ASM NAMES clang.exe clang)
-    if(_CLANG_ASM)
-        set(_FFI_ASM_OBJ "${CMAKE_CURRENT_BINARY_DIR}/win64_asm.obj")
+if(EXISTS "${_FFI_ASM_FILE}")
+    set(_FFI_ASM_OBJ "${CMAKE_CURRENT_BINARY_DIR}/libffi_asm.obj")
+    if(_FFI_IS_X86)
+        # sysv_intel.S：经 scripts/assemble_libffi_win32.cmd（cl /EP 重定向 + ml）
+        set(_FFI_ASM_SCRIPT "${CMAKE_CURRENT_LIST_DIR}/../../scripts/assemble_libffi_win32.cmd")
+        get_filename_component(_FFI_ASM_SCRIPT "${_FFI_ASM_SCRIPT}" ABSOLUTE)
+        if(NOT EXISTS "${_FFI_ASM_SCRIPT}")
+            message(FATAL_ERROR "libffi: missing ${_FFI_ASM_SCRIPT}")
+        endif()
         add_custom_command(
             OUTPUT "${_FFI_ASM_OBJ}"
-            COMMAND "${_CLANG_ASM}" -c -o "${_FFI_ASM_OBJ}"
-                    "-I${_FFI_GEN_DIR}" "-I${_FFI_ROOT}/include" "-I${_FFI_ROOT}/src/x86"
-                    -target x86_64-pc-windows-msvc -DFFI_BUILDING -DFFI_STATIC_BUILD -DX86_WIN64 -DLIBFFI_ASM
-                    "${_FFI_ROOT}/src/x86/win64.S"
-            DEPENDS "${_FFI_ROOT}/src/x86/win64.S" "${_FFI_H_OUT}" "${_FFI_GEN_DIR}/fficonfig.h"
-            COMMENT "Assembling libffi win64.S with clang"
+            COMMAND "${_FFI_ASM_SCRIPT}"
+                    "${_FFI_ASM_FILE}"
+                    "${_FFI_ASM_OBJ}"
+                    "${_FFI_GEN_DIR}"
+                    "${_FFI_ROOT}/include"
+                    "${_FFI_ROOT}/src/x86"
+                    "${_FFI_ROOT}/src"
+                    "${ASAPP_DEP_LINKAGE}"
+            DEPENDS "${_FFI_ASM_FILE}" "${_FFI_H_OUT}" "${_FFI_GEN_DIR}/fficonfig.h"
+                    "${_FFI_GEN_DIR}/ffitarget.h" "${_FFI_ASM_SCRIPT}"
+            COMMENT "Preprocess+MASM libffi sysv_intel.S via assemble_libffi_win32.cmd (${ASAPP_DEP_LINKAGE})"
             VERBATIM
         )
-        message(STATUS "libffi: using clang assembler for win64.S (${_CLANG_ASM})")
+        message(STATUS "libffi: Win32 assemble script ${_FFI_ASM_SCRIPT} linkage=${ASAPP_DEP_LINKAGE}")
     else()
-        message(WARNING "libffi: clang.exe not found; building without ASM (may be incomplete)")
+        find_program(_CLANG_ASM NAMES clang.exe clang)
+        if(_CLANG_ASM)
+            add_custom_command(
+                OUTPUT "${_FFI_ASM_OBJ}"
+                COMMAND "${_CLANG_ASM}" -c -o "${_FFI_ASM_OBJ}"
+                        "-I${_FFI_GEN_DIR}" "-I${_FFI_ROOT}/include" "-I${_FFI_ROOT}/src/x86"
+                        -target ${_FFI_ASM_TRIPLE} -DFFI_BUILDING -DFFI_STATIC_BUILD
+                        ${_FFI_ASM_DEFINE} -DLIBFFI_ASM
+                        "${_FFI_ASM_FILE}"
+                DEPENDS "${_FFI_ASM_FILE}" "${_FFI_H_OUT}" "${_FFI_GEN_DIR}/fficonfig.h"
+                COMMENT "Assembling libffi ${_FFI_ASM_FILE} with clang (${_FFI_ASM_TRIPLE})"
+                VERBATIM
+            )
+            message(STATUS "libffi: clang assembler ${_FFI_ASM_FILE} target=${_FFI_ASM_TRIPLE}")
+        else()
+            set(_FFI_ASM_OBJ "")
+            message(WARNING "libffi: clang.exe not found; building without ASM (may be incomplete)")
+        endif()
     endif()
 endif()
 
 if(ASAPP_DEP_LINKAGE STREQUAL "shared")
     if(_FFI_ASM_OBJ)
-        add_library(ffi SHARED ${_FFI_SOURCES} "${_FFI_ASM_OBJ}")
+        add_library(ffi SHARED ${_FFI_C_SOURCES} "${_FFI_ASM_OBJ}")
     else()
-        add_library(ffi SHARED ${_FFI_SOURCES})
+        add_library(ffi SHARED ${_FFI_C_SOURCES})
     endif()
 else()
     if(_FFI_ASM_OBJ)
-        add_library(ffi STATIC ${_FFI_SOURCES} "${_FFI_ASM_OBJ}")
+        add_library(ffi STATIC ${_FFI_C_SOURCES} "${_FFI_ASM_OBJ}")
     else()
-        add_library(ffi STATIC ${_FFI_SOURCES})
+        add_library(ffi STATIC ${_FFI_C_SOURCES})
     endif()
 endif()
 
@@ -120,10 +173,18 @@ target_include_directories(ffi PUBLIC
 )
 target_compile_definitions(ffi PRIVATE FFI_BUILDING)
 if(ASAPP_DEP_LINKAGE STREQUAL "static")
+    # 静态库：客户端与库均走 FFI_STATIC_BUILD，避免 dllimport
     target_compile_definitions(ffi PUBLIC FFI_STATIC_BUILD)
+else()
+    # 共享库：构建期必须 FFI_BUILDING_DLL（见 ffi.h.in）
+    target_compile_definitions(ffi PRIVATE FFI_BUILDING_DLL)
 endif()
 if(MSVC OR (WIN32 AND CMAKE_CXX_COMPILER_ID MATCHES "Clang"))
     target_compile_options(ffi PRIVATE /W0)
+endif()
+# Win32 MASM 目标文件通常无 SAFESEH；共享库链接需关闭
+if(_FFI_IS_X86 AND ASAPP_DEP_LINKAGE STREQUAL "shared")
+    target_link_options(ffi PRIVATE "/SAFESEH:NO")
 endif()
 set_target_properties(ffi PROPERTIES OUTPUT_NAME ffi)
 
@@ -151,17 +212,18 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/libffiConfig.cmake" DESTINATION lib/c
 
 set(_META_DIR "${CMAKE_CURRENT_BINARY_DIR}/_meta/libffi")
 file(MAKE_DIRECTORY "${_META_DIR}")
-file(WRITE "${_META_DIR}/PACKAGE_META.yaml" [[
+file(WRITE "${_META_DIR}/PACKAGE_META.yaml" "
 name: libffi
-version: "3.4.6"
+version: \"3.4.6\"
 kind: compiled
 license: MIT
 windows_min_os: win7
+arch: ${ASAPP_DEP_ARCH}
 toolchain:
   generator: ninja
   preferred: clang-ninja
   windows_driver: clang-cl
   abi: msvc
-  notes: "Custom Windows x64 CMake recipe; not upstream autotools."
-]])
+  notes: \"Custom Windows CMake recipe (x64/x86); not upstream autotools.\"
+")
 install(FILES "${_META_DIR}/PACKAGE_META.yaml" DESTINATION .)
