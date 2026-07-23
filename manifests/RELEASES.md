@@ -1,11 +1,11 @@
-ï»¿# ä¾èµ–é›†å‘å¸ƒè®°å½•
+# ÒÀÀµ¼¯·¢²¼¼ÇÂ¼
 
-| æºç  commit / tag | åˆ¶å“ tag | è¯´æ˜ |
+| Ô´Âë commit / tag | ÖÆÆ· tag | ËµÃ÷ |
 |-------------------|----------|------|
-| ï¼ˆbootstrapï¼‰ | deps-bootstrap | ä»“éª¨æ¶ + header-only è¯•ç‚¹åˆ‡ç‰‡ |
-| d1abf51 | deps-2026.07.22 | sqlite / gtest / spdlogï¼ˆwindows-x64-static-releaseï¼‰ |
-| 1a56eb5 | deps-2026.07.22-1 | openssl / libffiï¼ˆwindows-x64-static-releaseï¼‰ |
-| 167d86f | deps-2026.07.22-2 | grpc 1.67.1 + bundled protobuf toolsï¼ˆwindows-x64-static-releaseï¼›PRE å¤§ .lib ä½¿ç”¨ Git LFSï¼‰ |
-| debb513 | deps-2026.07.22-3 | boost 1.90.0 header-onlyï¼ˆwindows-x64-static-releaseï¼‰ |
-| 4760218 | deps-2026.07.22-4 | libcef 102.0.10 shared-runtimeï¼ˆwindows-x64-shared-releaseï¼›DLL/Resources/locales ä½¿ç”¨ Git LFSï¼‰ |
-| ï¼ˆè§æºç ä»“ HEADï¼‰ | deps-2026.07.23-5 | Windows x86 ä¸»äº¤ä»˜å››åˆ‡ç‰‡ï¼›æ ¸å¿ƒåŒ… + gRPC **static** debug/releaseï¼›libcef ä»… shared-releaseï¼›gRPC shared Win32 æš‚ç¼“ï¼ˆupb LNK1120ï¼‰ |
+| £¨bootstrap£© | deps-bootstrap | ²Ö¹Ç¼Ü + header-only ÊÔµãÇĞÆ¬ |
+| d1abf51 | deps-2026.07.22 | sqlite / gtest / spdlog£¨windows-x64-static-release£© |
+| 1a56eb5 | deps-2026.07.22-1 | openssl / libffi£¨windows-x64-static-release£© |
+| 167d86f | deps-2026.07.22-2 | grpc 1.67.1 + bundled protobuf tools£¨windows-x64-static-release£»PRE ´ó .lib Ê¹ÓÃ Git LFS£© |
+| debb513 | deps-2026.07.22-3 | boost 1.90.0 header-only£¨windows-x64-static-release£© |
+| 4760218 | deps-2026.07.22-4 | libcef 102.0.10 shared-runtime£¨windows-x64-shared-release£»DLL/Resources/locales Ê¹ÓÃ Git LFS£© |
+| 383b771 | deps-2026.07.23-5 | Windows x86 Ö÷½»¸¶ËÄÇĞÆ¬£»ºËĞÄ°ü + gRPC **static** debug/release£»libcef ½ö shared-release£»gRPC shared Win32 Ôİ»º£¨upb LNK1120£© |
