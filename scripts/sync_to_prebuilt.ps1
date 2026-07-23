@@ -11,20 +11,18 @@ param(
 
 $ErrorActionPreference = "Stop"
 $RepoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
+. (Join-Path $PSScriptRoot "AsAppDepCommon.ps1")
 if ([string]::IsNullOrWhiteSpace($DistRoot)) {
     $DistRoot = Join-Path $RepoRoot "dist\$Slice"
 }
 if ([string]::IsNullOrWhiteSpace($PrebuiltRoot)) {
-    $Candidate = Join-Path $RepoRoot "prebuilt"
-    if (Test-Path (Join-Path $Candidate ".git")) {
-        $PrebuiltRoot = $Candidate
-    } else {
-        $PrebuiltRoot = "E:\work\Demo\Demo\Demo004\asapp-thirdparty-prebuilt"
-    }
+    $PrebuiltRoot = Resolve-AsAppDepPrebuiltRoot
 }
 
 if (-not (Test-Path $DistRoot)) { throw "Dist slice not found: $DistRoot" }
-if (-not (Test-Path $PrebuiltRoot)) { throw "Prebuilt root not found: $PrebuiltRoot" }
+if (-not $PrebuiltRoot -or -not (Test-Path $PrebuiltRoot)) {
+    throw "Prebuilt root not found. Pass -PrebuiltRoot or set ASAPP_PREBUILT_ROOT."
+}
 
 $DestSlice = Join-Path $PrebuiltRoot $Slice
 Write-Host "Sync $DistRoot -> $DestSlice"

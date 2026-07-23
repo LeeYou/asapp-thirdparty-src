@@ -111,3 +111,93 @@ function Get-AsAppDepSliceName
     )
     return "{0}-{1}-{2}-{3}" -f $Os, $Arch, $Linkage, $Config
 }
+
+function Resolve-AsAppDepPrebuiltRoot
+{
+    <#
+    .SYNOPSIS
+      解析制品仓根：-PrebuiltRoot / 环境变量 ASAPP_PREBUILT_ROOT / 本仓 prebuilt 子模块 / 同级 asapp-thirdparty-prebuilt。
+    #>
+    param([string]$Hint = "")
+    if ($Hint -and (Test-Path -LiteralPath $Hint))
+    {
+        return (Resolve-Path -LiteralPath $Hint).Path
+    }
+    if ($env:ASAPP_PREBUILT_ROOT -and (Test-Path -LiteralPath $env:ASAPP_PREBUILT_ROOT))
+    {
+        return (Resolve-Path -LiteralPath $env:ASAPP_PREBUILT_ROOT).Path
+    }
+    $nested = Join-Path $script:AsAppDepRepoRoot "prebuilt"
+    if (Test-Path (Join-Path $nested ".git"))
+    {
+        return (Resolve-Path $nested).Path
+    }
+    $sibling = Join-Path (Split-Path $script:AsAppDepRepoRoot -Parent) "asapp-thirdparty-prebuilt"
+    if (Test-Path -LiteralPath $sibling)
+    {
+        return (Resolve-Path $sibling).Path
+    }
+    return $null
+}
+
+function Resolve-AsAppDepBoostSourceRoot
+{
+    <#
+    .SYNOPSIS
+      Boost 头树根（含 boost/asio.hpp）。优先 ASAPP_BOOST_SRC，再 sources/boost/src。
+    #>
+    param([string]$Hint = "")
+    $candidates = @()
+    if ($Hint) { $candidates += $Hint }
+    if ($env:ASAPP_BOOST_SRC) { $candidates += $env:ASAPP_BOOST_SRC }
+    $candidates += (Join-Path $script:AsAppDepRepoRoot "sources\boost\src")
+    foreach ($c in $candidates)
+    {
+        if ($c -and (Test-Path (Join-Path $c "boost\asio.hpp")))
+        {
+            return (Resolve-Path $c).Path
+        }
+    }
+    return $null
+}
+
+function Resolve-AsAppDepCefBundleRoot
+{
+    <#
+    .SYNOPSIS
+      官方 CEF binary 根（含 include/cef_app.h）。优先 -BundleRoot / ASAPP_CEF_BUNDLE，再 sources/libcef/src。
+    #>
+    param(
+        [string]$Hint = "",
+        [Parameter(Mandatory = $true)][ValidateSet("windows32", "windows64")][string]$Suffix
+    )
+    $candidates = @()
+    if ($Hint) { $candidates += $Hint }
+    if ($env:ASAPP_CEF_BUNDLE) { $candidates += $env:ASAPP_CEF_BUNDLE }
+
+    foreach ($c in $candidates)
+    {
+        if ($c -and (Test-Path (Join-Path $c "include\cef_app.h")))
+        {
+            return (Resolve-Path $c).Path
+        }
+    }
+
+    $srcRoot = Join-Path $script:AsAppDepRepoRoot "sources\libcef\src"
+    if (Test-Path $srcRoot)
+    {
+        if (Test-Path (Join-Path $srcRoot "include\cef_app.h"))
+        {
+            return (Resolve-Path $srcRoot).Path
+        }
+        $hit = Get-ChildItem -LiteralPath $srcRoot -Directory -ErrorAction SilentlyContinue |
+            Where-Object { $_.Name -like "cef_binary_*_$Suffix" } |
+            Sort-Object Name -Descending |
+            Select-Object -First 1
+        if ($hit -and (Test-Path (Join-Path $hit.FullName "include\cef_app.h")))
+        {
+            return $hit.FullName
+        }
+    }
+    return $null
+}

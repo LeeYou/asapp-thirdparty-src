@@ -5,16 +5,30 @@
   windows-x86-static-{debug|release}/<pkg>（加速 Win32 矩阵；随后应以源码仓正式构建覆盖）。
 #>
 param(
-    [string]$LegacyRoot = "E:\work\Demo\AsApp\third_party\staged\windows_x86",
+    [string]$LegacyRoot = "",
     [string]$DestRoot = "",
-    [string]$PrebuiltRoot = "E:\work\Demo\Demo\Demo004\asapp-thirdparty-prebuilt",
+    [string]$PrebuiltRoot = "",
     [switch]$ToPrebuilt
 )
 
 $ErrorActionPreference = "Stop"
 $RepoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
+. (Join-Path $PSScriptRoot "AsAppDepCommon.ps1")
 if ([string]::IsNullOrWhiteSpace($DestRoot)) {
     $DestRoot = Join-Path $RepoRoot "dist"
+}
+if ([string]::IsNullOrWhiteSpace($LegacyRoot)) {
+    if ($env:ASAPP_LEGACY_STAGED) {
+        $LegacyRoot = $env:ASAPP_LEGACY_STAGED
+    } else {
+        throw "Pass -LegacyRoot or set ASAPP_LEGACY_STAGED to old staged/windows_x86 root."
+    }
+}
+if ($ToPrebuilt -and [string]::IsNullOrWhiteSpace($PrebuiltRoot)) {
+    $PrebuiltRoot = Resolve-AsAppDepPrebuiltRoot
+    if (-not $PrebuiltRoot) {
+        throw "Pass -PrebuiltRoot or set ASAPP_PREBUILT_ROOT when using -ToPrebuilt."
+    }
 }
 
 function Copy-Pkg([string]$Src, [string]$Dst)

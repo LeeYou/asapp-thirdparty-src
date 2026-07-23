@@ -15,7 +15,7 @@
 #>
 param(
     [string]$Packages = "nlohmann_json,stb,spdlog,boost,sqlite,gtest,libffi,openssl,grpc,libcef",
-    [string]$PrebuiltRoot = "E:\work\Demo\Demo\Demo004\asapp-thirdparty-prebuilt",
+    [string]$PrebuiltRoot = "",
     [switch]$SkipGrpc,
     [switch]$SkipOpenssl,
     [switch]$SkipLibcef,
@@ -24,7 +24,9 @@ param(
     [string]$LinkageFilter = "all",
     [ValidateSet("all", "debug", "release")]
     [string]$ConfigFilter = "all",
-    [int]$Jobs = 0
+    [int]$Jobs = 0,
+    [string]$CefBundleRoot = "",
+    [string]$BoostSourceRoot = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -33,6 +35,15 @@ Set-Location $RepoRoot
 . (Join-Path $PSScriptRoot "AsAppDepCommon.ps1")
 $Jobs = Get-AsAppDepParallelJobs -Jobs $Jobs
 Write-Host "Matrix parallel jobs: $Jobs"
+
+if ([string]::IsNullOrWhiteSpace($PrebuiltRoot))
+{
+    $PrebuiltRoot = Resolve-AsAppDepPrebuiltRoot
+}
+if ($SyncToPrebuilt -and -not $PrebuiltRoot)
+{
+    throw "Prebuilt root not found. Pass -PrebuiltRoot or set ASAPP_PREBUILT_ROOT / nest prebuilt submodule."
+}
 
 $Linkages = @("static", "shared")
 $Configs = @("debug", "release")
@@ -52,26 +63,10 @@ function Invoke-HeaderSlice([string]$SliceRoot)
     {
         if ($pkg -eq "boost")
         {
-            $boostSrc = Join-Path $RepoRoot "sources\boost\src"
-            if (-not (Test-Path (Join-Path $boostSrc "boost\asio.hpp")))
+            $boostSrc = Resolve-AsAppDepBoostSourceRoot -Hint $BoostSourceRoot
+            if (-not $boostSrc)
             {
-                $fallback = "E:\work\Demo\AsApp\third_party\sources\boost\src"
-                if (Test-Path (Join-Path $fallback "boost\asio.hpp"))
-                {
-                    $boostSrc = $fallback
-                }
-                else
-                {
-                    $pre = Join-Path $PrebuiltRoot "windows-x64-static-release\boost\include"
-                    if (Test-Path (Join-Path $pre "boost\asio.hpp"))
-                    {
-                        & (Join-Path $PSScriptRoot "sync_boost_headers.ps1") `
-                            -SourceRoot $pre `
-                            -DestRoot (Join-Path $SliceRoot "boost")
-                        continue
-                    }
-                    throw "boost headers not found"
-                }
+                throw "boost headers not found. Set ASAPP_BOOST_SRC / -BoostSourceRoot or sources/boost/src."
             }
             & (Join-Path $PSScriptRoot "sync_boost_headers.ps1") `
                 -SourceRoot $boostSrc `
@@ -134,10 +129,15 @@ if ($WantLibcef)
     $cefSlice = "windows-x86-shared-release"
     $cefDest = Join-Path $RepoRoot "dist\$cefSlice\libcef"
     Write-Host "`n======== libcef -> $cefSlice ========"
+    $cefBundle = Resolve-AsAppDepCefBundleRoot -Hint $CefBundleRoot -Suffix "windows32"
+    if (-not $cefBundle)
+    {
+        throw "CEF windows32 bundle not found. Pass -CefBundleRoot / set ASAPP_CEF_BUNDLE or place under sources/libcef/src."
+    }
     & (Join-Path $PSScriptRoot "package_libcef_windows.ps1") `
         -Arch x86 `
         -DestRoot $cefDest `
-        -BundleRoot "E:\work\Demo\AsApp\third_party\sources\libcef\src\cef_binary_102.0.10+gf249b2e+chromium-102.0.5005.115_windows32"
+        -BundleRoot $cefBundle
     if ($SyncToPrebuilt)
     {
         $preCef = Join-Path $PrebuiltRoot "$cefSlice\libcef"

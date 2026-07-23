@@ -21,39 +21,13 @@ param(
 
 $ErrorActionPreference = "Stop"
 $BundleSuffix = if ($Arch -eq "x86") { "windows32" } else { "windows64" }
+. (Join-Path $PSScriptRoot "AsAppDepCommon.ps1")
 
 function Resolve-BundleRoot([string]$Hint, [string]$Suffix)
 {
-    if ($Hint -and (Test-Path (Join-Path $Hint "include\cef_app.h")))
-    {
-        return (Resolve-Path $Hint).Path
-    }
-
-    $RepoRoot = Split-Path $PSScriptRoot -Parent
-    $SearchRoots = @(
-        (Join-Path $RepoRoot "sources\libcef\src"),
-        "E:\work\Demo\AsApp\third_party\sources\libcef\src"
-    )
-    foreach ($Root in $SearchRoots)
-    {
-        if (-not (Test-Path $Root))
-        {
-            continue
-        }
-        if (Test-Path (Join-Path $Root "include\cef_app.h"))
-        {
-            return (Resolve-Path $Root).Path
-        }
-        $Candidate = Get-ChildItem -LiteralPath $Root -Directory -ErrorAction SilentlyContinue |
-            Where-Object { $_.Name -like "cef_binary_*_$Suffix" } |
-            Sort-Object Name |
-            Select-Object -First 1
-        if ($Candidate -and (Test-Path (Join-Path $Candidate.FullName "include\cef_app.h")))
-        {
-            return $Candidate.FullName
-        }
-    }
-    throw "CEF $Suffix bundle not found. Pass -BundleRoot or place under sources/libcef/src."
+    $resolved = Resolve-AsAppDepCefBundleRoot -Hint $Hint -Suffix $Suffix
+    if ($resolved) { return $resolved }
+    throw "CEF $Suffix bundle not found. Pass -BundleRoot / set ASAPP_CEF_BUNDLE or place under sources/libcef/src."
 }
 
 function Copy-Tree([string]$Source, [string]$Dest)

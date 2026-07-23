@@ -64,12 +64,13 @@ foreach ($pkg in ($Packages -split ",")) {
         continue
     }
     if ($pkg -eq "boost") {
-        $boostSrc = Join-Path $RepoRoot "sources\boost\src"
-        if (-not (Test-Path (Join-Path $boostSrc "boost\asio.hpp"))) {
-            & (Join-Path $PSScriptRoot "extract_archive.ps1") -Package boost
+        $boostSrc = Resolve-AsAppDepBoostSourceRoot
+        if (-not $boostSrc) {
+            & (Join-Path $PSScriptRoot "extract_archive.ps1") -Package boost -ErrorAction SilentlyContinue
+            $boostSrc = Resolve-AsAppDepBoostSourceRoot
         }
-        if (-not (Test-Path (Join-Path $boostSrc "boost\asio.hpp"))) {
-            $boostSrc = "E:\work\Demo\AsApp\third_party\sources\boost\src"
+        if (-not $boostSrc) {
+            throw "boost headers not found. Set ASAPP_BOOST_SRC or place tree under sources/boost/src (see sources/boost/README.md)."
         }
         & (Join-Path $PSScriptRoot "sync_boost_headers.ps1") `
             -SourceRoot $boostSrc `

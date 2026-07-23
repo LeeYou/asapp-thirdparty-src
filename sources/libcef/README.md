@@ -8,18 +8,23 @@
 
 ## 本地布局
 
-大体积树默认不入库（见仓库 `.gitignore`）。开发机可从 AsApp 既有纳管树引用，或解压到：
+大体积树默认不入库（见仓库 `.gitignore`）。解压到：
 
 ```text
+sources/libcef/src/cef_binary_*_windows32/
 sources/libcef/src/cef_binary_*_windows64/
 ```
+
+或设置环境变量 `ASAPP_CEF_BUNDLE` 指向含 `include/cef_app.h` 的包根。
 
 ## 打包制品
 
 ```powershell
 pwsh -File scripts/package_libcef_windows.ps1 `
-  -DestRoot dist/windows-x64-shared-release/libcef
-pwsh -File scripts/sync_to_prebuilt.ps1 -Slice windows-x64-shared-release
+  -Arch x86 `
+  -DestRoot dist/windows-x86-shared-release/libcef
+# 可选：-BundleRoot <cef_binary_..._windows32>
+pwsh -File scripts/sync_to_prebuilt.ps1 -Slice windows-x86-shared-release
 ```
 
-产出切片：`windows-x64-shared-release/libcef`（shared 运行时 + import lib + wrapper 源）。
+主交付切片：`windows-x86-shared-release/libcef`（任意业务 linkage/config 由 AsApp 自动回落）。
