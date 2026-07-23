@@ -11,3 +11,4 @@
 | c1472d4 | deps-2026.07.23-5 | Windows x86 四切片 + static gRPC；libcef x86 shared-release |
 | db6955a | deps-2026.07.23-6 | 移除全部 windows-x64 切片；仅保留 Win32 主交付四切片 |
 | （本仓 HEAD） | deps-2026.07.23-7 | 补齐 gRPC **shared** Win32 debug/release（upb STATIC + TraceFlag GRPC_DLL + PATH for plugins） |
+| feebdf2 | deps-2026.07.24-1 | spdlog Config 去掉 `SPDLOG_HEADER_ONLY`（修复 CEF `/WX` 下 MSVC C4005→C2220） |
