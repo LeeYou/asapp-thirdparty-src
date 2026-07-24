@@ -14,7 +14,7 @@ dependencies:
     owner: ""
     modules:
       - app-gui
-    notes: "Governed GUI runtime dependency; current intake is version-locked to the Windows x64 CEF binary bundle and must pass staged SDK/runtime/resource/locale validation before app-gui enables real CEF bootstrap."
+    notes: "Governed GUI runtime dependency; version-locked CEF binary bundles. Windows shared-release slices already in prebuilt; Linux x64/arm64 official archives indexed under archives/libcef (extract+package only on Linux hosts)."
 
   - name: fmt
     category: B
