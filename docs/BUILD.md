@@ -1,30 +1,70 @@
 # 构建入口（源码仓）
 
 > 切片名：`{os}-{arch}-{linkage}-{config}`  
-> 权威矩阵：AsApp `docs/enterprisev3.0/third_party/09-主交付编译矩阵.md`
+> 权威矩阵：AsApp `docs/enterprisev3.0/third_party/09-主交付编译矩阵.md`  
+> **新增库逐步操作（推荐读）：** AsApp `docs/enterprisev3.0/third_party/10-新增第三方库操作手册.md`
+
+## 工作区：嵌套制品子模块（推荐）
+
+本仓通过 git submodule 挂载制品仓：
+
+```text
+asapp-thirdparty-src/
+└── prebuilt/          # → https://github.com/LeeYou/asapp-thirdparty-prebuilt.git
+```
+
+```powershell
+git submodule update --init --recursive prebuilt
+```
+
+**日常新增/升级库只需在本仓操作：** 编译 → `-SyncToPrebuilt` 写入 `./prebuilt` → 进入 `prebuilt/` commit + 打 `deps-*` tag → 回到本仓提交 submodule 指针。  
+AsApp 再 bump 其 `third_party/prebuilt` 到同一 tag。
+
+| 对象 | 结论 |
+|------|------|
+| GitHub `asapp-thirdparty-prebuilt` **远程** | **必须保留**（本仓与 AsApp 共同消费） |
+| 本机再单独 clone 一份制品仓 | **不必须**；优先用本仓 `prebuilt/` |
 
 ## 环境变量（禁止硬编码业务仓路径）
 
 | 变量 | 用途 |
 |------|------|
-| `ASAPP_PREBUILT_ROOT` | 制品仓工作树（`sync` / 矩阵 `-SyncToPrebuilt`） |
+| `ASAPP_PREBUILT_ROOT` | 制品工作树；**默认可用本仓 `./prebuilt`**（`-SyncToPrebuilt` 时） |
 | `ASAPP_BOOST_SRC` | Boost 头树根（含 `boost/asio.hpp`） |
 | `ASAPP_CEF_BUNDLE` | CEF 官方 binary 根（含 `include/cef_app.h`） |
 | `ASAPP_LEGACY_STAGED` | 仅 `import_legacy_windows_x86.ps1` 用 |
 
-默认在本仓查找：`sources/boost/src`、`sources/libcef/src/cef_binary_*`、嵌套/同级 `prebuilt`。
+未设置 `ASAPP_PREBUILT_ROOT` 时，矩阵脚本按顺序尝试：本仓 `prebuilt/` → 同级目录 `asapp-thirdparty-prebuilt`。
 
 ## Windows x86 四组合（主交付）
 
 ```powershell
+# 推荐：产物同步进嵌套子模块 ./prebuilt
 .\scripts\build_windows_x86_matrix.ps1 -SyncToPrebuilt -Jobs 26
-# 或指定制品仓：
+
+# 显式指定（仅当不用嵌套子模块时）
 .\scripts\build_windows_x86_matrix.ps1 -PrebuiltRoot D:\asapp-thirdparty-prebuilt -SyncToPrebuilt
 ```
 
 单包：`.\scripts\build.ps1 -Arch x86 -Linkage static -Config debug -Packages sqlite,gtest`
 
 特殊包：`build_openssl_windows.ps1` / `build_grpc_windows.ps1` / `package_libcef_windows.ps1`
+
+### 发布制品 tag（在 prebuilt/ 内）
+
+```powershell
+cd prebuilt
+git add -A
+git commit -m "Update windows-x86 slices"
+git tag deps-YYYY.MM.DD-N
+git push origin HEAD
+git push origin deps-YYYY.MM.DD-N
+# 大文件按需：git lfs push origin --all
+cd ..
+git add prebuilt
+git commit -m "Point prebuilt submodule to deps-YYYY.MM.DD-N"
+git push
+```
 
 ## Linux x64 四组合
 
@@ -36,7 +76,10 @@
 ```bash
 chmod +x scripts/*.sh
 ./scripts/build_linux_x64_matrix.sh --jobs 16
-ASAPP_PREBUILT_ROOT=/path/to/asapp-thirdparty-prebuilt ./scripts/build_linux_x64_matrix.sh --sync
+# 同步到嵌套子模块：
+./scripts/build_linux_x64_matrix.sh --sync
+# 或：
+ASAPP_PREBUILT_ROOT="$(pwd)/prebuilt" ./scripts/build_linux_x64_matrix.sh --sync
 
 # 仅 CMake 包（跳过 openssl/libffi/grpc）：
 ./scripts/build_linux_x64_matrix.sh --skip-openssl --skip-libffi --skip-grpc --jobs 16
@@ -55,4 +98,8 @@ ASAPP_PREBUILT_ROOT=/path/to/asapp-thirdparty-prebuilt ./scripts/build_linux_x64
 
 ## 扩展新库
 
-见 `cmake/packages/README.md`。
+1. 源码仓：`cmake/packages/<pkg>.cmake` 或专用脚本（见 `cmake/packages/README.md`）  
+2. 矩阵编包装入 `./prebuilt` → 制品打 `deps-*` → 本仓提交 submodule 指针  
+3. AsApp：bump `third_party/prebuilt` + `asapp_ensure_*` + 重配编译  
+
+完整检查清单见 AsApp 专项文档 **`10-新增第三方库操作手册.md`**。
