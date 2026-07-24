@@ -2,7 +2,20 @@
 
 > 切片名：`{os}-{arch}-{linkage}-{config}`  
 > 权威矩阵：AsApp `docs/enterprisev3.0/third_party/09-主交付编译矩阵.md`  
-> **新增库逐步操作（推荐读）：** AsApp `docs/enterprisev3.0/third_party/10-新增第三方库操作手册.md`
+> 目录前缀职责：AsApp `docs/enterprisev3.0/third_party/03-制品目录与命名规格.md` **§3.6**  
+> **新增库逐步操作：** AsApp `docs/enterprisev3.0/third_party/10-新增第三方库操作手册.md`
+
+## 目录规格（与业务仓对齐切片、区分前缀）
+
+| 路径 | 用途 |
+|------|------|
+| `build/<slice>/<pkg>/` | 临时 CMake/Ninja 构建树（可删） |
+| `dist/<slice>/<pkg>/` | 安装暂存；矩阵 `-SyncToPrebuilt` 的源 |
+| `prebuilt/<slice>/<pkg>/` | 嵌套制品子模块（正式交付布局，**裸切片**） |
+
+`<slice>` = `{os}-{arch}-{linkage}-{config}`，例：`windows-x86-static-debug`。
+
+**不要**把本仓路径写成 AsApp 那种扁平 `build-windows-x86-static-debug`——那是**业务整仓**输出树；本仓是**按包**构建，必须用 `build/<slice>/<pkg>`。
 
 ## 工作区：嵌套制品子模块（推荐）
 

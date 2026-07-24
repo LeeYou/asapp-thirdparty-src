@@ -38,8 +38,10 @@
 1. `sources/<pkg>/` + `archives/<pkg>/README.md`（及可选归档）
 2. 新增 `cmake/packages/<pkg>.cmake` 或专用 `scripts/build_<pkg>_*.ps1`
 3. 挂到 `scripts/build.ps1` / 矩阵脚本的包列表
-4. `-SyncToPrebuilt` 写入本仓嵌套子模块 `prebuilt/`，在制品仓打 `deps-*` tag
-5. 更新 `manifests/dependencies.yaml` 与制品 `MANIFEST.yaml`
-6. AsApp bump `third_party/prebuilt` 并接线（见 AsApp 文档 `10-新增第三方库操作手册.md`）
+4. `-SyncToPrebuilt` 写入本仓嵌套子模块 `prebuilt/`（路径：`prebuilt/<slice>/<pkg>`），在制品仓打 `deps-*` tag  
+5. 更新 `manifests/dependencies.yaml` 与制品 `MANIFEST.yaml`  
+6. AsApp bump `third_party/prebuilt` 并接线（见 AsApp 文档 `10`；业务输出树为 `build-<slice>/`，见 `03` §3.6）
+
+目录对照：`build/<slice>/<pkg>`（临时）→ `dist/<slice>/<pkg>`（暂存）→ `prebuilt/<slice>/<pkg>`（正式）。
 
 **不必**为本机再单独 clone 一份制品仓；**必须**保留 GitHub 上的 `asapp-thirdparty-prebuilt` 远程。
