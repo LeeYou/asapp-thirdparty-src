@@ -18,9 +18,10 @@
 
 | 包 | 入口 |
 |----|------|
-| openssl | `scripts/build_openssl_windows.ps1`（jom/nmake）；Linux 待办 |
-| grpc | `scripts/build_grpc_windows.ps1`（Ninja `--parallel`）；Linux 待办 |
-| libcef | `scripts/package_libcef_windows.ps1`（官方 binary stage） |
+| openssl | Windows：`scripts/build_openssl_windows.ps1`；Linux：`scripts/build_openssl_linux.sh` |
+| grpc | Windows：`scripts/build_grpc_windows.ps1`；Linux：`scripts/build_grpc_linux.sh` |
+| libffi | Windows：`cmake/packages/libffi.cmake`；Linux：`scripts/build_libffi_linux.sh`（autotools） |
+| libcef | `scripts/package_libcef_windows.ps1`（官方 binary stage；Linux 待办） |
 | boost / spdlog / nlohmann / stb | Windows 可用 header 脚本；POSIX 走本目录 CMake recipe |
 
 ## 矩阵入口
@@ -28,7 +29,7 @@
 | 平台 | 脚本 |
 |------|------|
 | Windows x86 四组合 | `scripts/build_windows_x86_matrix.ps1` |
-| Linux x64 四组合（骨架） | `scripts/build_linux_x64_matrix.sh` |
+| Linux x64 四组合 | `scripts/build_linux_x64_matrix.sh` |
 
 详见 `docs/BUILD.md`。
 

@@ -26,22 +26,31 @@
 
 特殊包：`build_openssl_windows.ps1` / `build_grpc_windows.ps1` / `package_libcef_windows.ps1`
 
-## Linux x64 四组合（骨架）
+## Linux x64 四组合
 
-当前矩阵覆盖 CMake recipe 包：`nlohmann_json,stb,spdlog,boost,sqlite,gtest`。  
-**尚未**：openssl / grpc / libcef（需后续 POSIX 脚本）。
+默认覆盖：`nlohmann_json,stb,spdlog,boost,sqlite,gtest`（CMake）+ `openssl` + `libffi` + `grpc`。  
+**尚未**：`libcef`（无 Linux 官方 binary 打包入口）。
+
+依赖工具：`cmake`、`ninja`、`clang`/`gcc`、`perl`、`make`；libffi 需上游 `configure`。
 
 ```bash
-chmod +x scripts/build.sh scripts/build_linux_x64_matrix.sh
+chmod +x scripts/*.sh
 ./scripts/build_linux_x64_matrix.sh --jobs 16
 ASAPP_PREBUILT_ROOT=/path/to/asapp-thirdparty-prebuilt ./scripts/build_linux_x64_matrix.sh --sync
+
+# 仅 CMake 包（跳过 openssl/libffi/grpc）：
+./scripts/build_linux_x64_matrix.sh --skip-openssl --skip-libffi --skip-grpc --jobs 16
 ```
 
-单切片：
+单切片 / 单包：
 
 ```bash
 ./scripts/build.sh --arch x64 --linkage static --config release \
   --packages nlohmann_json,stb,sqlite,gtest --jobs 16
+
+./scripts/build_openssl_linux.sh --linkage static --config release --jobs 16
+./scripts/build_libffi_linux.sh --linkage static --config release --jobs 8
+./scripts/build_grpc_linux.sh --linkage static --config release --jobs 16
 ```
 
 ## 扩展新库

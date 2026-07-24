@@ -42,8 +42,8 @@ CMAKE_BUILD_TYPE="Debug"
 mkdir -p "$INSTALL_ROOT"
 echo "Slice: $SLICE -> $INSTALL_ROOT (jobs=$JOBS)"
 
-# openssl / grpc / libcef：POSIX 矩阵尚未提供专用脚本
-SKIP_HINT_PKGS="openssl grpc libcef"
+# 专用脚本包：勿走 cmake/packages 占位 recipe
+SKIP_HINT_PKGS="openssl grpc libffi libcef"
 
 IFS=',' read -ra PKGS <<< "$PACKAGES"
 for raw in "${PKGS[@]}"; do
@@ -52,7 +52,13 @@ for raw in "${PKGS[@]}"; do
 
   for skip in $SKIP_HINT_PKGS; do
     if [[ "$pkg" == "$skip" ]]; then
-      echo "SKIP $pkg: no POSIX recipe yet (Windows: scripts/build_*_windows.ps1 / package_libcef_windows.ps1)"
+      case "$pkg" in
+        openssl) echo "SKIP openssl: use scripts/build_openssl_linux.sh (or build_linux_x64_matrix.sh)" ;;
+        grpc) echo "SKIP grpc: use scripts/build_grpc_linux.sh (or build_linux_x64_matrix.sh)" ;;
+        libffi) echo "SKIP libffi: use scripts/build_libffi_linux.sh (autotools; Windows uses libffi.cmake)" ;;
+        libcef) echo "SKIP libcef: Linux packaging not available yet (Windows: package_libcef_windows.ps1)" ;;
+        *) echo "SKIP $pkg: dedicated script required" ;;
+      esac
       continue 2
     fi
   done
@@ -62,8 +68,6 @@ for raw in "${PKGS[@]}"; do
     echo "ERROR: unknown package '$pkg' (missing $recipe)" >&2
     exit 1
   fi
-
-  # openssl.cmake / grpc.cmake 是 FATAL 占位；上面已跳过同名包
   pkg_build="$REPO_ROOT/build/$SLICE/$pkg"
   pkg_dest="$INSTALL_ROOT/$pkg"
   rm -rf "$pkg_build" "$pkg_dest"

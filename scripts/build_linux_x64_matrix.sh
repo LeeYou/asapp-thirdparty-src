@@ -1,22 +1,26 @@
 #!/usr/bin/env bash
-# 产出 Linux x64 主交付四切片骨架：static|shared × debug|release
+# 产出 Linux x64 主交付四切片：static|shared × debug|release
 #
-# 当前覆盖（CMake packages）：nlohmann_json, stb, spdlog, boost, sqlite, gtest
-# 未覆盖（待后续脚本）：openssl, grpc, libffi(视平台), libcef
+# 默认包：CMake recipe + openssl + libffi + grpc
+# libcef：Linux 尚未提供官方 binary 打包入口（跳过）
 #
 # 用法：
 #   ./scripts/build_linux_x64_matrix.sh
 #   ./scripts/build_linux_x64_matrix.sh --packages nlohmann_json,stb,sqlite --jobs 16
 #   ./scripts/build_linux_x64_matrix.sh --linkage static --config release
+#   ./scripts/build_linux_x64_matrix.sh --skip-grpc --skip-openssl
 #   ASAPP_PREBUILT_ROOT=/path/to/prebuilt ./scripts/build_linux_x64_matrix.sh --sync
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-PACKAGES="nlohmann_json,stb,spdlog,boost,sqlite,gtest"
+PACKAGES="nlohmann_json,stb,spdlog,boost,sqlite,gtest,libffi,openssl,grpc"
 LINKAGE_FILTER="all"
 CONFIG_FILTER="all"
 JOBS="$(nproc 2>/dev/null || echo 4)"
 SYNC=0
+SKIP_OPENSSL=0
+SKIP_LIBFFI=0
+SKIP_GRPC=0
 PREBUILT_ROOT="${ASAPP_PREBUILT_ROOT:-}"
 
 while [[ $# -gt 0 ]]; do
@@ -27,6 +31,9 @@ while [[ $# -gt 0 ]]; do
     --jobs) JOBS="$2"; shift 2 ;;
     --sync) SYNC=1; shift ;;
     --prebuilt-root) PREBUILT_ROOT="$2"; shift 2 ;;
+    --skip-openssl) SKIP_OPENSSL=1; shift ;;
+    --skip-libffi) SKIP_LIBFFI=1; shift ;;
+    --skip-grpc) SKIP_GRPC=1; shift ;;
     *) echo "Unknown arg: $1"; exit 1 ;;
   esac
 done
@@ -35,6 +42,29 @@ LINKAGES=(static shared)
 CONFIGS=(debug release)
 [[ "$LINKAGE_FILTER" != "all" ]] && LINKAGES=("$LINKAGE_FILTER")
 [[ "$CONFIG_FILTER" != "all" ]] && CONFIGS=("$CONFIG_FILTER")
+
+# 解析包列表 → cmake / 专用脚本
+IFS=',' read -ra PKG_ARR <<< "$PACKAGES"
+CMAKE_PKGS=()
+WANT_OPENSSL=0
+WANT_LIBFFI=0
+WANT_GRPC=0
+for raw in "${PKG_ARR[@]}"; do
+  pkg="$(echo "$raw" | xargs)"
+  [[ -z "$pkg" ]] && continue
+  case "$pkg" in
+    openssl) WANT_OPENSSL=1 ;;
+    libffi) WANT_LIBFFI=1 ;;
+    grpc) WANT_GRPC=1 ;;
+    libcef)
+      echo "NOTE: skip libcef on Linux (no package_libcef_linux yet)"
+      ;;
+    *) CMAKE_PKGS+=("$pkg") ;;
+  esac
+done
+[[ "$SKIP_OPENSSL" -eq 1 ]] && WANT_OPENSSL=0
+[[ "$SKIP_LIBFFI" -eq 1 ]] && WANT_LIBFFI=0
+[[ "$SKIP_GRPC" -eq 1 ]] && WANT_GRPC=0
 
 if [[ "$SYNC" -eq 1 ]]; then
   if [[ -z "$PREBUILT_ROOT" ]]; then
@@ -49,7 +79,14 @@ if [[ "$SYNC" -eq 1 ]]; then
   fi
 fi
 
-echo "=== Linux x64 matrix: linkages=${LINKAGES[*]} configs=${CONFIGS[*]} packages=$PACKAGES jobs=$JOBS ==="
+CMAKE_JOINED=""
+if [[ ${#CMAKE_PKGS[@]} -gt 0 ]]; then
+  CMAKE_JOINED="$(IFS=,; echo "${CMAKE_PKGS[*]}")"
+fi
+
+echo "=== Linux x64 matrix: linkages=${LINKAGES[*]} configs=${CONFIGS[*]} ==="
+echo "  cmake   : ${CMAKE_JOINED:-"(none)"}"
+echo "  openssl : $WANT_OPENSSL  libffi: $WANT_LIBFFI  grpc: $WANT_GRPC  jobs=$JOBS"
 
 for link in "${LINKAGES[@]}"; do
   for cfg in "${CONFIGS[@]}"; do
@@ -58,9 +95,31 @@ for link in "${LINKAGES[@]}"; do
     echo
     echo "======== $slice ========"
     mkdir -p "$dist"
-    "$REPO_ROOT/scripts/build.sh" \
-      --os linux --arch x64 --linkage "$link" --config "$cfg" \
-      --packages "$PACKAGES" --install-root "$dist" --jobs "$JOBS"
+
+    if [[ -n "$CMAKE_JOINED" ]]; then
+      "$REPO_ROOT/scripts/build.sh" \
+        --os linux --arch x64 --linkage "$link" --config "$cfg" \
+        --packages "$CMAKE_JOINED" --install-root "$dist" --jobs "$JOBS"
+    fi
+
+    if [[ "$WANT_OPENSSL" -eq 1 ]]; then
+      "$REPO_ROOT/scripts/build_openssl_linux.sh" \
+        --arch x64 --linkage "$link" --config "$cfg" \
+        --install-root "$dist/openssl" --jobs "$JOBS"
+    fi
+
+    if [[ "$WANT_LIBFFI" -eq 1 ]]; then
+      "$REPO_ROOT/scripts/build_libffi_linux.sh" \
+        --arch x64 --linkage "$link" --config "$cfg" \
+        --install-root "$dist/libffi" --jobs "$JOBS"
+    fi
+
+    if [[ "$WANT_GRPC" -eq 1 ]]; then
+      "$REPO_ROOT/scripts/build_grpc_linux.sh" \
+        --arch x64 --linkage "$link" --config "$cfg" \
+        --openssl-root "$dist/openssl" \
+        --install-root "$dist/grpc" --jobs "$JOBS"
+    fi
 
     if [[ "$SYNC" -eq 1 ]]; then
       dest="$PREBUILT_ROOT/$slice"
@@ -74,4 +133,6 @@ done
 
 echo
 echo "Done. dist roots under $REPO_ROOT/dist/linux-x64-*"
-echo "NOTE: openssl / grpc / libcef Linux recipes are not in this matrix yet."
+if [[ "$WANT_GRPC" -eq 1 && "$WANT_OPENSSL" -eq 0 ]]; then
+  echo "NOTE: grpc requested without openssl in this run — ensure dist/<slice>/openssl exists."
+fi
