@@ -9,6 +9,10 @@ endif()
 
 if(ASAPP_DEP_LINKAGE STREQUAL "shared")
     add_library(asapp_sqlite3 SHARED "${_SQLITE_C}")
+    # MSVC 默认不导出 C 符号；无此则 DLL 无导出表、导入库无 __imp_sqlite3_*
+    if(WIN32)
+        set_target_properties(asapp_sqlite3 PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS ON)
+    endif()
 else()
     add_library(asapp_sqlite3 STATIC "${_SQLITE_C}")
 endif()
