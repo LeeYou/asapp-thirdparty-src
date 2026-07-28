@@ -22,7 +22,7 @@ tool/
 
 | 工具 | 是否必须 | 用途 | 获取 |
 |------|----------|------|------|
-| Visual Studio 2022 + MSVC | **必须**（系统安装） | VsDevCmd、cl、ml、link | VS Installer |
+| Visual Studio 2022 + MSVC | **必须**（系统安装） | VsDevCmd、cl、ml、link | VS Installer；**禁止用 VS2017/2019 替代**（见 `TOOLCHAINS.md` / AsApp `third_party/12`） |
 | LLVM clang-cl / Ninja | **必须** | 常规包 CMake 构建 | 系统或 CI 镜像 |
 | Strawberry/Git perl | **必须**（OpenSSL） | `Configure` | 系统 PATH |
 | **jom** | **强烈推荐** | 替代 nmake 并行编译 OpenSSL | 见下方 |

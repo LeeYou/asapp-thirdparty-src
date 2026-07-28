@@ -52,13 +52,13 @@ sources/grpc/src/
 sources/boost/src/
 sources/libcef/src/
 
-# ±¾µØ¹¤¾ß¶þ½øÖÆ£¨README ±£Áô£©
+# ï¿½ï¿½ï¿½Ø¹ï¿½ï¿½ß¶ï¿½ï¿½ï¿½ï¿½Æ£ï¿½README ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½
 tool/**/jom.exe
 tool/**/*.exe
 !tool/**/README.md
 
 
-# ´ó¹éµµ±¾µØÍ¶·Å£¨README Ë÷ÒýÈë¿â£©
+# ï¿½ï¿½éµµï¿½ï¿½ï¿½ï¿½Í¶ï¿½Å£ï¿½README ï¿½ï¿½ï¿½ï¿½ï¿½ï¿½â£©
 archives/**/*.zip
 archives/**/*.tar.gz
 archives/**/*.tgz

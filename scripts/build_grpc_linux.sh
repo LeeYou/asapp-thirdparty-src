@@ -31,8 +31,8 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ "$ARCH" != "x64" ]]; then
-  echo "ERROR: build_grpc_linux.sh currently supports --arch x64 only (got $ARCH)" >&2
+if [[ "$ARCH" != "x64" && "$ARCH" != "arm64" ]]; then
+  echo "ERROR: build_grpc_linux.sh supports --arch x64|arm64 (got $ARCH)" >&2
   exit 1
 fi
 if [[ "$LINKAGE" != "static" && "$LINKAGE" != "shared" ]]; then
@@ -63,6 +63,33 @@ done
 if [[ ! -f "$TOOLCHAIN" ]]; then
   echo "ERROR: toolchain missing: $TOOLCHAIN" >&2
   exit 1
+fi
+
+# 早期失败：Ubuntu 18.04 + 仅 GCC7 libstdc++ 时 Abseil 会缺 <filesystem>
+if command -v clang++ >/dev/null 2>&1; then
+  _fs_probe="$(mktemp -t asapp_fs_probe_XXXXXX.cpp)"
+  _fs_bin="$(mktemp -t asapp_fs_probe_XXXXXX)"
+  cat >"$_fs_probe" <<'EOF'
+#include <filesystem>
+int main() { return std::filesystem::temp_directory_path().empty() ? 1 : 0; }
+EOF
+  _fs_ok=0
+  if [[ -d /usr/lib/gcc/x86_64-linux-gnu/8 ]] || [[ -d /usr/lib/gcc/x86_64-linux-gnu/9 ]] \
+    || [[ -d /usr/lib/gcc/x86_64-linux-gnu/10 ]] || [[ -d /usr/lib/gcc/x86_64-linux-gnu/11 ]]; then
+    # 探测时带上与 toolchain 相同的思路（具体 flags 由 CMake toolchain 注入）
+    if clang++ -std=c++17 --gcc-toolchain=/usr -o "$_fs_bin" "$_fs_probe" >/dev/null 2>&1; then
+      _fs_ok=1
+    fi
+  elif clang++ -std=c++17 -o "$_fs_bin" "$_fs_probe" >/dev/null 2>&1; then
+    _fs_ok=1
+  fi
+  rm -f "$_fs_probe" "$_fs_bin"
+  if [[ "$_fs_ok" -ne 1 ]]; then
+    echo "ERROR: clang++ cannot compile #include <filesystem> (needed by gRPC/Abseil)." >&2
+    echo "  On Ubuntu 18.04: apt-get install -y g++-8   then rm -rf build/linux-x64-* and retry." >&2
+    echo "  Prefer Ubuntu 20.04+ build hosts. See docs/BUILD.md." >&2
+    exit 1
+  fi
 fi
 
 if [[ -z "$OPENSSL_ROOT" ]]; then
@@ -100,7 +127,7 @@ CMAKE_ARGS=(
   -G Ninja
   -S "$SOURCE_ROOT"
   -B "$BUILD_ROOT"
-  --toolchain "$TOOLCHAIN"
+  -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN"
   -DCMAKE_BUILD_TYPE="$CMAKE_BUILD_TYPE"
   -DCMAKE_INSTALL_PREFIX="$INSTALL_ROOT"
   -DBUILD_SHARED_LIBS="$SHARED_FLAG"
@@ -149,7 +176,18 @@ if [[ "$LINKAGE" == "shared" ]]; then
 fi
 
 run_logged configure cmake "${CMAKE_ARGS[@]}"
-run_logged build cmake --build "$BUILD_ROOT" --parallel "$JOBS"
+
+# shellcheck source=AsAppDepBuildParallel.sh
+source "$REPO_ROOT/scripts/AsAppDepBuildParallel.sh"
+JOBS="$(asapp_dep_normalize_jobs "$JOBS")"
+echo "  Running: build (-j$JOBS, live ninja output)"
+mkdir -p "$LOG_DIR"
+if ! asapp_dep_cmake_build "$BUILD_ROOT" "$JOBS" "$LOG_DIR/build.log"; then
+  echo "---- build.log (tail) ----" >&2
+  tail -n 60 "$LOG_DIR/build.log" >&2 || true
+  echo "ERROR: gRPC build failed" >&2
+  exit 1
+fi
 run_logged install cmake --install "$BUILD_ROOT"
 
 cat >"$INSTALL_ROOT/PACKAGE_META.yaml" <<EOF
@@ -158,7 +196,7 @@ version: "1.67.1"
 kind: compiled
 license: Apache-2.0
 os: linux
-arch: x64
+arch: ${ARCH}
 linkage: ${LINKAGE}
 config: ${CONFIG}
 components:

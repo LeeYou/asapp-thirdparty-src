@@ -1,9 +1,11 @@
 # 构建入口（源码仓）
 
+> **工具链权威（无歧义）：** AsApp `docs/enterprisev3.0/third_party/12-全平台工具链兼容矩阵.md` + 本仓 `TOOLCHAINS.md`（C++17；Windows 仅 VS2022；禁止 VS2017/2019 混链）  
 > 切片名：`{os}-{arch}-{linkage}-{config}`  
 > 权威矩阵：AsApp `docs/enterprisev3.0/third_party/09-主交付编译矩阵.md`  
 > 目录前缀职责：AsApp `docs/enterprisev3.0/third_party/03-制品目录与命名规格.md` **§3.6**  
-> **新增库逐步操作：** AsApp `docs/enterprisev3.0/third_party/10-新增第三方库操作手册.md`
+> **新增库逐步操作：** AsApp `docs/enterprisev3.0/third_party/10-新增第三方库操作手册.md`  
+> **分平台编库并集成 AsApp：** AsApp `docs/enterprisev3.0/third_party/11-分平台构建与AsApp集成手册.md`
 
 ## 目录规格（与业务仓对齐切片、区分前缀）
 
@@ -79,20 +81,71 @@ git commit -m "Point prebuilt submodule to deps-YYYY.MM.DD-N"
 git push
 ```
 
-## Linux x64 四组合
+## Linux（国产兼容：UOS / 麒麟，x64 + arm64）
 
 默认覆盖：`nlohmann_json,stb,spdlog,boost,sqlite,gtest`（CMake）+ `openssl` + `libffi` + `grpc`。  
 **尚未**：`libcef`（无 Linux 官方 binary 打包入口）。
 
-依赖工具：`cmake`、`ninja`、`clang`/`gcc`、`perl`、`make`；libffi 需上游 `configure`。
+依赖工具：`cmake`≥3.24、`ninja`、`clang`/`clang++`≥15、`perl`、`make`；libffi 需上游 `configure`；libstdc++ 须提供 `<filesystem>`（**GCC ≥ 8**）。
+
+### 正式路径：Docker（Debian 10 / glibc 2.28）
+
+部署目标含 **统信 UOS 1050/1070**、**银河麒麟 2203/2403** 等时，**禁止**用 Ubuntu 20.04+（glibc 2.31）当默认构建根。  
+正式构建根：**`debian:10`（glibc 2.28）**。
+
+完整步骤、镜像构建、验收与排错见：
+
+→ **[`docs/DOCKER_LINUX_BUILD.md`](DOCKER_LINUX_BUILD.md)**
+
+快捷入口：
+
+```bash
+chmod +x scripts/*.sh docker/*.sh
+git submodule update --init --recursive prebuilt
+
+# 国内需代理拉 GitHub：把端口改成你的本地代理
+PROXY=http://127.0.0.1:7890
+
+# 仅构建镜像
+./docker/build_linux_image.sh --arch amd64 --proxy "$PROXY"
+
+# 构建镜像 + 跑 x64 四切片
+./docker/run_linux_matrix_in_docker.sh --arch amd64 --jobs 16 --sync --build-image --proxy "$PROXY"
+
+# arm64（需 arm64 机或 QEMU）
+./docker/run_linux_matrix_in_docker.sh --arch arm64 --jobs 8 --sync --build-image --proxy "$PROXY"
+```
+
+### 并行编译
+
+- `--jobs N`：传给 **ninja/make 的 `-jN`**（gRPC 等大包主要靠这个）
+- 同切片内：CMake 小包可包级并发（`ASAPP_DEP_PKG_PARALLEL`，默认约 `jobs/4`，上限 4）；`openssl` 与 `libffi` 并行；`grpc` 仍在 openssl 之后
+- 若日志里看不到 `running: ninja ... -j16`，说明脚本未更新到含 `AsAppDepBuildParallel.sh` 的版本
+
+### 裸机 / 非 Docker（仅排障）
+
+若必须在宿主机直接编：宿主 glibc **不得高于** 最低目标机（建议宿主或 chroot 也是 **Debian 10 / glibc 2.28**）。  
+Ubuntu 18.04 默认 **GCC 7** 无 `<filesystem>`，须装 **g++-8+**：
+
+```bash
+apt-get update && apt-get install -y g++-8
+rm -rf build/linux-x64-* dist/linux-x64-*
+./scripts/build_linux_x64_matrix.sh --jobs 16 --sync
+```
+
+`cmake/toolchains/linux-clang.cmake` 会自动探测 `/usr/lib/gcc/*/8..13` 并让 Clang 使用对应 libstdc++。
 
 ```bash
 chmod +x scripts/*.sh
+git submodule update --init --recursive prebuilt
+
 ./scripts/build_linux_x64_matrix.sh --jobs 16
-# 同步到嵌套子模块：
 ./scripts/build_linux_x64_matrix.sh --sync
-# 或：
+./scripts/build_linux_x64_matrix.sh --sync --prebuilt-root "$(pwd)/prebuilt"
 ASAPP_PREBUILT_ROOT="$(pwd)/prebuilt" ./scripts/build_linux_x64_matrix.sh --sync
+
+# arm64 四切片：
+./scripts/build_linux_arm64_matrix.sh --jobs 8 --sync
 
 # 仅 CMake 包（跳过 openssl/libffi/grpc）：
 ./scripts/build_linux_x64_matrix.sh --skip-openssl --skip-libffi --skip-grpc --jobs 16
@@ -104,9 +157,11 @@ ASAPP_PREBUILT_ROOT="$(pwd)/prebuilt" ./scripts/build_linux_x64_matrix.sh --sync
 ./scripts/build.sh --arch x64 --linkage static --config release \
   --packages nlohmann_json,stb,sqlite,gtest --jobs 16
 
-./scripts/build_openssl_linux.sh --linkage static --config release --jobs 16
-./scripts/build_libffi_linux.sh --linkage static --config release --jobs 8
-./scripts/build_grpc_linux.sh --linkage static --config release --jobs 16
+./scripts/build_openssl_linux.sh --arch x64 --linkage static --config release --jobs 16
+./scripts/build_libffi_linux.sh --arch x64 --linkage static --config release --jobs 8
+./scripts/build_grpc_linux.sh --arch x64 --linkage static --config release --jobs 16
+
+# arm64 将 --arch 改为 arm64，并在 aarch64 容器/机器上执行
 ```
 
 ## 扩展新库
@@ -115,4 +170,5 @@ ASAPP_PREBUILT_ROOT="$(pwd)/prebuilt" ./scripts/build_linux_x64_matrix.sh --sync
 2. 矩阵编包装入 `./prebuilt` → 制品打 `deps-*` → 本仓提交 submodule 指针  
 3. AsApp：bump `third_party/prebuilt` + `asapp_ensure_*` + 重配编译  
 
-完整检查清单见 AsApp 专项文档 **`10-新增第三方库操作手册.md`**。
+完整检查清单见 AsApp 专项文档 **`10-新增第三方库操作手册.md`**。  
+Windows / Linux 从矩阵到主程序编译的复制用命令见 **`11-分平台构建与AsApp集成手册.md`**。

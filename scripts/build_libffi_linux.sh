@@ -28,8 +28,8 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ "$ARCH" != "x64" ]]; then
-  echo "ERROR: build_libffi_linux.sh currently supports --arch x64 only (got $ARCH)" >&2
+if [[ "$ARCH" != "x64" && "$ARCH" != "arm64" ]]; then
+  echo "ERROR: build_libffi_linux.sh supports --arch x64|arm64 (got $ARCH)" >&2
   exit 1
 fi
 if [[ "$LINKAGE" != "static" && "$LINKAGE" != "shared" ]]; then
@@ -173,7 +173,7 @@ version: "3.4.6"
 kind: compiled
 license: MIT
 os: linux
-arch: x64
+arch: ${ARCH}
 linkage: ${LINKAGE}
 config: ${CONFIG}
 toolchain:

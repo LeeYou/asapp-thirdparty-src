@@ -5,7 +5,10 @@ AsApp / ALS 平台 **第三方依赖源码与构建仓**（唯一源）。
 配套制品仓：[asapp-thirdparty-prebuilt](https://github.com/LeeYou/asapp-thirdparty-prebuilt)  
 业务仓通过 **制品仓子模块** 消费依赖，不直接编译本仓（除库管理/CI）。
 
-权威设计（业务仓文档）：`AsApp/docs/enterprisev3.0/third_party/00–08`
+权威设计（业务仓文档）：`AsApp/docs/enterprisev3.0/third_party/00–11`  
+分平台编库并集成 AsApp：`…/11-分平台构建与AsApp集成手册.md`（Windows / Linux）  
+构建命令细节：[`docs/BUILD.md`](docs/BUILD.md)  
+Linux 国产兼容（UOS/麒麟）Docker 构建：[`docs/DOCKER_LINUX_BUILD.md`](docs/DOCKER_LINUX_BUILD.md)
 
 ## 目录
 

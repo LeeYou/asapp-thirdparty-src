@@ -1,15 +1,15 @@
 #!/usr/bin/env bash
-# 产出 Linux x64 主交付四切片：static|shared × debug|release
+# 产出 Linux arm64 主交付四切片：static|shared × debug|release
 #
 # 默认包：CMake recipe + openssl + libffi + grpc
 # libcef：Linux 尚未提供官方 binary 打包入口（跳过）
 #
 # 用法：
-#   ./scripts/build_linux_x64_matrix.sh
-#   ./scripts/build_linux_x64_matrix.sh --packages nlohmann_json,stb,sqlite --jobs 16
-#   ./scripts/build_linux_x64_matrix.sh --linkage static --config release
-#   ./scripts/build_linux_x64_matrix.sh --skip-grpc --skip-openssl
-#   ASAPP_PREBUILT_ROOT=/path/to/prebuilt ./scripts/build_linux_x64_matrix.sh --sync
+#   ./scripts/build_linux_arm64_matrix.sh
+#   ./scripts/build_linux_arm64_matrix.sh --packages nlohmann_json,stb,sqlite --jobs 16
+#   ./scripts/build_linux_arm64_matrix.sh --linkage static --config release
+#   ./scripts/build_linux_arm64_matrix.sh --skip-grpc --skip-openssl
+#   ASAPP_PREBUILT_ROOT=/path/to/prebuilt ./scripts/build_linux_arm64_matrix.sh --sync
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -102,14 +102,14 @@ if [[ ${#CMAKE_PKGS[@]} -gt 0 ]]; then
   CMAKE_JOINED="$(IFS=,; echo "${CMAKE_PKGS[*]}")"
 fi
 
-echo "=== Linux x64 matrix: linkages=${LINKAGES[*]} configs=${CONFIGS[*]} ==="
+echo "=== Linux arm64 matrix: linkages=${LINKAGES[*]} configs=${CONFIGS[*]} ==="
 echo "  cmake   : ${CMAKE_JOINED:-"(none)"}"
 echo "  openssl : $WANT_OPENSSL  libffi: $WANT_LIBFFI  grpc: $WANT_GRPC  jobs=$JOBS"
 echo "  note    : ninja/make use -j$JOBS; openssl∥libffi; cmake pkgs may run PKG_PARALLEL concurrently"
 
 for link in "${LINKAGES[@]}"; do
   for cfg in "${CONFIGS[@]}"; do
-    slice="linux-x64-${link}-${cfg}"
+    slice="linux-arm64-${link}-${cfg}"
     dist="$REPO_ROOT/dist/$slice"
     echo
     echo "======== $slice ========"
@@ -117,7 +117,7 @@ for link in "${LINKAGES[@]}"; do
 
     if [[ -n "$CMAKE_JOINED" ]]; then
       "$REPO_ROOT/scripts/build.sh" \
-        --os linux --arch x64 --linkage "$link" --config "$cfg" \
+        --os linux --arch arm64 --linkage "$link" --config "$cfg" \
         --packages "$CMAKE_JOINED" --install-root "$dist" --jobs "$JOBS"
     fi
 
@@ -126,14 +126,14 @@ for link in "${LINKAGES[@]}"; do
     names=()
     if [[ "$WANT_OPENSSL" -eq 1 ]]; then
       "$REPO_ROOT/scripts/build_openssl_linux.sh" \
-        --arch x64 --linkage "$link" --config "$cfg" \
+        --arch arm64 --linkage "$link" --config "$cfg" \
         --install-root "$dist/openssl" --jobs "$JOBS" &
       pids+=("$!")
       names+=("openssl")
     fi
     if [[ "$WANT_LIBFFI" -eq 1 ]]; then
       "$REPO_ROOT/scripts/build_libffi_linux.sh" \
-        --arch x64 --linkage "$link" --config "$cfg" \
+        --arch arm64 --linkage "$link" --config "$cfg" \
         --install-root "$dist/libffi" --jobs "$JOBS" &
       pids+=("$!")
       names+=("libffi")
@@ -147,7 +147,7 @@ for link in "${LINKAGES[@]}"; do
 
     if [[ "$WANT_GRPC" -eq 1 ]]; then
       "$REPO_ROOT/scripts/build_grpc_linux.sh" \
-        --arch x64 --linkage "$link" --config "$cfg" \
+        --arch arm64 --linkage "$link" --config "$cfg" \
         --openssl-root "$dist/openssl" \
         --install-root "$dist/grpc" --jobs "$JOBS"
     fi
@@ -163,7 +163,7 @@ for link in "${LINKAGES[@]}"; do
 done
 
 echo
-echo "Done. dist roots under $REPO_ROOT/dist/linux-x64-*"
+echo "Done. dist roots under $REPO_ROOT/dist/linux-arm64-*"
 if [[ "$WANT_GRPC" -eq 1 && "$WANT_OPENSSL" -eq 0 ]]; then
   echo "NOTE: grpc requested without openssl in this run — ensure dist/<slice>/openssl exists."
 fi

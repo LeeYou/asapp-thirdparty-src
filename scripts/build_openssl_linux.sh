@@ -30,8 +30,8 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
-if [[ "$ARCH" != "x64" ]]; then
-  echo "ERROR: build_openssl_linux.sh currently supports --arch x64 only (got $ARCH)" >&2
+if [[ "$ARCH" != "x64" && "$ARCH" != "arm64" ]]; then
+  echo "ERROR: build_openssl_linux.sh supports --arch x64|arm64 (got $ARCH)" >&2
   exit 1
 fi
 if [[ "$LINKAGE" != "static" && "$LINKAGE" != "shared" ]]; then
@@ -90,7 +90,21 @@ find "$BUILD_ROOT/src" -type f \( -name '*.o' -o -name '*.a' -o -name '*.so' -o 
 INSTALL_ROOT="$(abs_path "$INSTALL_ROOT")"
 WORK_SRC="$(abs_path "$BUILD_ROOT/src")"
 
-CFG_OPTS=("linux-x86_64" "no-tests" "no-docs" "--prefix=$INSTALL_ROOT" "--openssldir=$INSTALL_ROOT/ssl" "--libdir=lib")
+# OpenSSL Configure 目标名随宿主机/容器架构变化（x64 vs arm64）
+case "$(uname -m)" in
+  x86_64)
+    OPENSSL_TARGET="linux-x86_64"
+    ;;
+  aarch64|arm64)
+    OPENSSL_TARGET="linux-aarch64"
+    ;;
+  *)
+    echo "ERROR: unsupported uname -m=$(uname -m) for OpenSSL Configure" >&2
+    exit 1
+    ;;
+esac
+
+CFG_OPTS=("${OPENSSL_TARGET}" "no-tests" "no-docs" "--prefix=$INSTALL_ROOT" "--openssldir=$INSTALL_ROOT/ssl" "--libdir=lib")
 [[ "$LINKAGE" == "static" ]] && CFG_OPTS+=("no-shared")
 [[ "$CONFIG" == "debug" ]] && CFG_OPTS+=("--debug")
 
@@ -99,6 +113,7 @@ LOG_DIR="$BUILD_ROOT/logs"
   cd "$WORK_SRC"
   echo "Configure: perl Configure ${CFG_OPTS[*]}"
   perl Configure "${CFG_OPTS[@]}"
+  echo "make -j${JOBS}"
   make -j"$JOBS"
   make install_sw
 ) >"$LOG_DIR/build.log" 2>"$LOG_DIR/build-stderr.log" || {
@@ -196,7 +211,7 @@ version: "3.5.6"
 kind: compiled
 license: Apache-2.0
 os: linux
-arch: x64
+arch: ${ARCH}
 linkage: ${LINKAGE}
 config: ${CONFIG}
 toolchain:

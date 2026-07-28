@@ -1,0 +1,141 @@
+# syntax=docker/dockerfile:1
+# AsApp Linux 构建根：Debian 10 (buster) / glibc 2.28
+# 兼容目标：统信 UOS 1050/1070、银河麒麟 V10（glibc 2.28）等 x64/arm64
+# 详见 docs/DOCKER_LINUX_BUILD.md
+#
+# 代理（构建期从 GitHub 拉 CMake/LLVM 等）：
+#   docker buildx build \
+#     --build-arg HTTP_PROXY=http://127.0.0.1:7890 \
+#     --build-arg HTTPS_PROXY=http://127.0.0.1:7890 \
+#     --build-arg NO_PROXY=localhost,127.0.0.1 \
+#     ...
+# 或使用：./docker/build_linux_image.sh --arch amd64 --proxy http://127.0.0.1:7890
+
+ARG DEBIAN_FRONTEND=noninteractive
+FROM debian:10-slim
+
+LABEL org.opencontainers.image.title="asapp-linux-build" \
+      org.opencontainers.image.description="glibc 2.28 (Debian 10) build image for UOS/Kylin" \
+      org.opencontainers.image.version="glibc228"
+
+# ---------- 构建期代理（须配合 --build-arg；默认空）----------
+ARG HTTP_PROXY
+ARG HTTPS_PROXY
+ARG ALL_PROXY
+ARG NO_PROXY
+ARG http_proxy
+ARG https_proxy
+ARG all_proxy
+ARG no_proxy
+
+# apt / curl / wget 读取这些 ENV；装完工具链后清空，避免把办公代理写死进镜像
+ENV DEBIAN_FRONTEND=noninteractive \
+    LANG=C.UTF-8 \
+    PATH="/opt/cmake/bin:/usr/local/bin:${PATH}" \
+    CC=clang \
+    CXX=clang++ \
+    HTTP_PROXY=${HTTP_PROXY} \
+    HTTPS_PROXY=${HTTPS_PROXY} \
+    ALL_PROXY=${ALL_PROXY} \
+    NO_PROXY=${NO_PROXY} \
+    http_proxy=${http_proxy} \
+    https_proxy=${https_proxy} \
+    all_proxy=${all_proxy} \
+    no_proxy=${no_proxy}
+
+# buster 已 EOL：使用 archive 源
+RUN set -eux; \
+    sed -i 's|deb.debian.org|archive.debian.org|g' /etc/apt/sources.list; \
+    sed -i 's|security.debian.org|archive.debian.org|g' /etc/apt/sources.list; \
+    sed -i '/buster-updates/d' /etc/apt/sources.list; \
+    apt-get update; \
+    apt-get install -y --no-install-recommends \
+        ca-certificates \
+        curl \
+        wget \
+        gnupg \
+        xz-utils \
+        git \
+        git-lfs \
+        build-essential \
+        g++-8 \
+        make \
+        ninja-build \
+        pkg-config \
+        autoconf \
+        automake \
+        libtool \
+        perl \
+        python3 \
+        unzip \
+        file \
+        binutils; \
+    update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-8 80; \
+    update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-8 80; \
+    rm -rf /var/lib/apt/lists/*
+
+# CMake >= 3.24（官方二进制，不依赖 buster 过旧包）
+ARG CMAKE_VERSION=3.28.3
+RUN set -eux; \
+    ARCH="$(uname -m)"; \
+    case "$ARCH" in \
+      x86_64) CMAKE_ARCH=linux-x86_64 ;; \
+      aarch64) CMAKE_ARCH=linux-aarch64 ;; \
+      *) echo "unsupported arch: $ARCH"; exit 1 ;; \
+    esac; \
+    curl -fsSL \
+      "https://github.com/Kitware/CMake/releases/download/v${CMAKE_VERSION}/cmake-${CMAKE_VERSION}-${CMAKE_ARCH}.tar.gz" \
+      -o /tmp/cmake.tgz; \
+    mkdir -p /opt/cmake; \
+    tar -xzf /tmp/cmake.tgz -C /opt/cmake --strip-components=1; \
+    rm -f /tmp/cmake.tgz; \
+    cmake --version
+
+# Clang 15（官方 LLVM 预编译包）
+ARG LLVM_VERSION=15.0.7
+RUN set -eux; \
+    ARCH="$(uname -m)"; \
+    case "$ARCH" in \
+      x86_64) LLVM_ARCH=x86_64-linux-gnu-ubuntu-18.04 ;; \
+      aarch64) LLVM_ARCH=aarch64-linux-gnu ;; \
+      *) echo "unsupported arch: $ARCH"; exit 1 ;; \
+    esac; \
+    curl -fsSL \
+      "https://github.com/llvm/llvm-project/releases/download/llvmorg-${LLVM_VERSION}/clang+llvm-${LLVM_VERSION}-${LLVM_ARCH}.tar.xz" \
+      -o /tmp/llvm.tar.xz; \
+    mkdir -p /opt/llvm; \
+    tar -xJf /tmp/llvm.tar.xz -C /opt/llvm --strip-components=1; \
+    rm -f /tmp/llvm.tar.xz; \
+    ln -sf /opt/llvm/bin/clang /usr/local/bin/clang; \
+    ln -sf /opt/llvm/bin/clang++ /usr/local/bin/clang++; \
+    ln -sf /opt/llvm/bin/clang-format /usr/local/bin/clang-format || true; \
+    clang++ --version
+
+# 默认用 GCC 8 的 libstdc++（Clang 工具链脚本也会探测）
+RUN set -eux; \
+    ARCH="$(uname -m)"; \
+    echo "/usr/lib/gcc/${ARCH}-linux-gnu/8" > /etc/ld.so.conf.d/gcc-8.conf || true; \
+    ldconfig || true
+
+# 清空构建期代理，运行期由 docker run -e / 脚本再注入
+ENV HTTP_PROXY= \
+    HTTPS_PROXY= \
+    ALL_PROXY= \
+    NO_PROXY= \
+    http_proxy= \
+    https_proxy= \
+    all_proxy= \
+    no_proxy=
+
+WORKDIR /work/src
+
+# 启动自检：确认 glibc / 工具链
+RUN set -eux; \
+    echo "=== AsApp Linux build image (glibc 2.28 / Debian 10) ==="; \
+    ldd --version | head -n1; \
+    cmake --version | head -n1; \
+    clang++ --version | head -n1; \
+    g++ --version | head -n1; \
+    ninja --version
+
+CMD ["bash"]

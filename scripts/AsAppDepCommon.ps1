@@ -76,7 +76,7 @@ function Invoke-AsAppDepVsDevCommand
     }
     if (-not $VsDevCmdPath -or -not (Test-Path $VsDevCmdPath))
     {
-        throw "VsDevCmd.bat not found. Place a copy under tool/vs/ or install VS2022."
+        throw "VsDevCmd.bat not found. Install Visual Studio 2022 (or Build Tools 2022) only — VS2017/2019 are not supported. See TOOLCHAINS.md / AsApp third_party/12."
     }
     $vsArch = if ($Arch -eq "x86") { "x86" } else { "amd64" }
     $bat = Join-Path $env:TEMP ("asapp_dep_{0}.cmd" -f [guid]::NewGuid().ToString("N"))
