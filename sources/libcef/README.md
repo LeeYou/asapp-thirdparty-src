@@ -40,19 +40,30 @@ pwsh -File scripts/sync_to_prebuilt.ps1 -Slice windows-x86-shared-release
 
 主交付切片：`windows-x86-shared-release/libcef`（任意业务 linkage/config 由 AsApp 自动回落）。
 
-## 打包制品（Linux，待脚本落地）
+## 打包制品（Linux）
 
-在 **Linux** 主机解压对应架构包后：
+在 **Linux** 主机（或 Debian 10 Docker）上，脚本会按顺序查找：
+
+1. `--bundle-root` / `ASAPP_CEF_BUNDLE`
+2. `sources/libcef/src/cef_binary_*_{linux64|linuxarm64}/`
+3. 若仅有归档：自动从 `archives/libcef/*.tar.bz2` 解压到 `sources/libcef/src/`
 
 ```bash
-# 规划接口（对齐 Windows 脚本语义）
+# 单独打包
 ./scripts/package_libcef_linux.sh --arch x64 \
   --dest-root dist/linux-x64-shared-release/libcef
-# arm64：--arch arm64 → linux-arm64-shared-release/libcef
-./scripts/sync_to_prebuilt.sh --slice linux-x64-shared-release   # 名称以仓库现有 sync 脚本为准
+# arm64：
+./scripts/package_libcef_linux.sh --arch arm64 \
+  --dest-root dist/linux-arm64-shared-release/libcef
+
+# 矩阵（默认含 libcef；无归档时加 --skip-libcef）
+./scripts/build_linux_x64_matrix.sh --jobs 16 --sync
+./scripts/build_linux_x64_matrix.sh --skip-libcef --jobs 16 --sync
 ```
 
 权威切片：
 
 - `linux-x64-shared-release/libcef`
 - `linux-arm64-shared-release/libcef`
+
+默认排除 `chrome-sandbox`（对齐 Windows 排除 `cef_sandbox.lib`）；需要时加 `--include-sandbox`。

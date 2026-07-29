@@ -1,21 +1,21 @@
 #!/usr/bin/env bash
 # 产出 Linux x64 主交付四切片：static|shared × debug|release
 #
-# 默认包：CMake recipe + openssl + libffi + grpc
-# libcef：Linux 尚未提供官方 binary 打包入口（跳过）
+# 默认包：CMake recipe + openssl + libffi + grpc + libcef
+# libcef：仅写入 linux-x64-shared-release（官方 binary，非重编）
 #
 # 用法：
 #   ./scripts/build_linux_x64_matrix.sh
 #   ./scripts/build_linux_x64_matrix.sh --packages nlohmann_json,stb,sqlite --jobs 16
 #   ./scripts/build_linux_x64_matrix.sh --linkage static --config release
-#   ./scripts/build_linux_x64_matrix.sh --skip-grpc --skip-openssl
+#   ./scripts/build_linux_x64_matrix.sh --skip-grpc --skip-openssl --skip-libcef
 #   ASAPP_PREBUILT_ROOT=/path/to/prebuilt ./scripts/build_linux_x64_matrix.sh --sync
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 # shellcheck source=AsAppDepBuildParallel.sh
 source "$REPO_ROOT/scripts/AsAppDepBuildParallel.sh"
-PACKAGES="nlohmann_json,stb,spdlog,boost,sqlite,gtest,libffi,openssl,grpc"
+PACKAGES="nlohmann_json,stb,spdlog,boost,sqlite,gtest,libffi,openssl,grpc,libcef"
 LINKAGE_FILTER="all"
 CONFIG_FILTER="all"
 JOBS="$(nproc 2>/dev/null || echo 4)"
@@ -23,6 +23,8 @@ SYNC=0
 SKIP_OPENSSL=0
 SKIP_LIBFFI=0
 SKIP_GRPC=0
+SKIP_LIBCEF=0
+CEF_BUNDLE_ROOT="${ASAPP_CEF_BUNDLE:-}"
 PREBUILT_ROOT="${ASAPP_PREBUILT_ROOT:-}"
 
 while [[ $# -gt 0 ]]; do
@@ -36,6 +38,8 @@ while [[ $# -gt 0 ]]; do
     --skip-openssl) SKIP_OPENSSL=1; shift ;;
     --skip-libffi) SKIP_LIBFFI=1; shift ;;
     --skip-grpc) SKIP_GRPC=1; shift ;;
+    --skip-libcef) SKIP_LIBCEF=1; shift ;;
+    --cef-bundle-root) CEF_BUNDLE_ROOT="$2"; shift 2 ;;
     --clean) export ASAPP_DEP_CLEAN=1; shift ;;
     *) echo "Unknown arg: $1"; exit 1 ;;
   esac
@@ -61,6 +65,7 @@ CMAKE_PKGS=()
 WANT_OPENSSL=0
 WANT_LIBFFI=0
 WANT_GRPC=0
+WANT_LIBCEF=0
 for raw in "${PKG_ARR[@]}"; do
   pkg="$(echo "$raw" | xargs)"
   [[ -z "$pkg" ]] && continue
@@ -68,15 +73,14 @@ for raw in "${PKG_ARR[@]}"; do
     openssl) WANT_OPENSSL=1 ;;
     libffi) WANT_LIBFFI=1 ;;
     grpc) WANT_GRPC=1 ;;
-    libcef)
-      echo "NOTE: skip libcef on Linux (no package_libcef_linux yet)"
-      ;;
+    libcef) WANT_LIBCEF=1 ;;
     *) CMAKE_PKGS+=("$pkg") ;;
   esac
 done
 [[ "$SKIP_OPENSSL" -eq 1 ]] && WANT_OPENSSL=0
 [[ "$SKIP_LIBFFI" -eq 1 ]] && WANT_LIBFFI=0
 [[ "$SKIP_GRPC" -eq 1 ]] && WANT_GRPC=0
+[[ "$SKIP_LIBCEF" -eq 1 ]] && WANT_LIBCEF=0
 
 if [[ "$SYNC" -eq 1 ]]; then
   if [[ -z "$PREBUILT_ROOT" ]]; then
@@ -111,7 +115,7 @@ fi
 
 echo "=== Linux x64 matrix: linkages=${LINKAGES[*]} configs=${CONFIGS[*]} ==="
 echo "  cmake   : ${CMAKE_JOINED:-"(none)"}"
-echo "  openssl : $WANT_OPENSSL  libffi: $WANT_LIBFFI  grpc: $WANT_GRPC  jobs=$JOBS"
+echo "  openssl : $WANT_OPENSSL  libffi: $WANT_LIBFFI  grpc: $WANT_GRPC  libcef: $WANT_LIBCEF  jobs=$JOBS"
 echo "  note    : incremental skip if PACKAGE_META exists; --clean forces rebuild; ninja -j$JOBS"
 
 for link in "${LINKAGES[@]}"; do
@@ -165,13 +169,26 @@ for link in "${LINKAGES[@]}"; do
 
     if [[ "$SYNC" -eq 1 ]]; then
       dest="$PREBUILT_ROOT/$slice"
-      echo "Sync $dist -> $dest"
-      rm -rf "$dest"
-      mkdir -p "$dest"
-      cp -a "$dist"/. "$dest"/
+      asapp_dep_sync_tree "$dist" "$dest"
     fi
   done
 done
+
+# libcef：仅 shared-release（官方 binary，与 Windows 矩阵一致）
+if [[ "$WANT_LIBCEF" -eq 1 ]]; then
+  cef_slice="linux-x64-shared-release"
+  cef_dest="$REPO_ROOT/dist/$cef_slice/libcef"
+  echo
+  echo "======== libcef -> $cef_slice ========"
+  CEF_ARGS=(--arch x64 --dest-root "$cef_dest")
+  [[ -n "$CEF_BUNDLE_ROOT" ]] && CEF_ARGS+=(--bundle-root "$CEF_BUNDLE_ROOT")
+  [[ "${ASAPP_DEP_CLEAN:-0}" == "1" ]] && CEF_ARGS+=(--clean)
+  "$REPO_ROOT/scripts/package_libcef_linux.sh" "${CEF_ARGS[@]}"
+  if [[ "$SYNC" -eq 1 ]]; then
+    pre_cef="$PREBUILT_ROOT/$cef_slice/libcef"
+    asapp_dep_sync_dir "$cef_dest" "$pre_cef"
+  fi
+fi
 
 echo
 echo "Done. dist roots under $REPO_ROOT/dist/linux-x64-*"

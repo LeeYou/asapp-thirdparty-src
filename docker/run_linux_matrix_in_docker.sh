@@ -34,6 +34,8 @@ usage() {
   --no-proxy LIST      NO_PROXY（默认 localhost,127.0.0.1）
   -h, --help           帮助
 
+其余参数原样传给矩阵脚本（如 --skip-libcef、--clean、--packages ...）。
+
 说明：正式构建根为 debian:10 / glibc 2.28，见 docs/DOCKER_LINUX_BUILD.md
 EOF
 }

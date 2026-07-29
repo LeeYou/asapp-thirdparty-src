@@ -63,7 +63,8 @@ AsApp 再 bump 其 `third_party/prebuilt` 到同一 tag。
 
 单包：`.\scripts\build.ps1 -Arch x86 -Linkage static -Config debug -Packages sqlite,gtest`
 
-特殊包：`build_openssl_windows.ps1` / `build_grpc_windows.ps1` / `package_libcef_windows.ps1`
+特殊包：`build_openssl_windows.ps1` / `build_grpc_windows.ps1` / `package_libcef_windows.ps1`  
+Linux 对应：`build_openssl_linux.sh` / `build_grpc_linux.sh` / `package_libcef_linux.sh`
 
 ### 发布制品 tag（在 prebuilt/ 内）
 
@@ -83,8 +84,8 @@ git push
 
 ## Linux（国产兼容：UOS / 麒麟，x64 + arm64）
 
-默认覆盖：`nlohmann_json,stb,spdlog,boost,sqlite,gtest`（CMake）+ `openssl` + `libffi` + `grpc`。  
-**尚未**：`libcef`（无 Linux 官方 binary 打包入口）。
+默认覆盖：`nlohmann_json,stb,spdlog,boost,sqlite,gtest`（CMake）+ `openssl` + `libffi` + `grpc` + `libcef`。  
+`libcef` 为官方 binary 打包（`package_libcef_linux.sh`），仅写入 `linux-{x64|arm64}-shared-release`；无归档时可 `--skip-libcef`。
 
 依赖工具：`cmake`≥3.24、`ninja`、`clang`/`clang++`≥15、`perl`、`make`；libffi 需上游 `configure`；libstdc++ 须提供 `<filesystem>`（**GCC ≥ 8**）。
 
@@ -163,8 +164,12 @@ ASAPP_PREBUILT_ROOT="$(pwd)/prebuilt" ./scripts/build_linux_x64_matrix.sh --sync
 # arm64 四切片：
 ./scripts/build_linux_arm64_matrix.sh --jobs 8 --sync
 
-# 仅 CMake 包（跳过 openssl/libffi/grpc）：
-./scripts/build_linux_x64_matrix.sh --skip-openssl --skip-libffi --skip-grpc --jobs 16
+# 仅 CMake 包（跳过 openssl/libffi/grpc/libcef）：
+./scripts/build_linux_x64_matrix.sh --skip-openssl --skip-libffi --skip-grpc --skip-libcef --jobs 16
+
+# 仅打包 libcef（需 archives 或已解压的官方包）：
+./scripts/package_libcef_linux.sh --arch x64 \
+  --dest-root dist/linux-x64-shared-release/libcef
 ```
 
 单切片 / 单包：

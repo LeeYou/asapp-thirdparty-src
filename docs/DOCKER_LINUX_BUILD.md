@@ -59,6 +59,22 @@
 
 业务仓 AsApp preset：`linux-x64-*` / `linux-arm64-*`（见 `CMakePresets.json`）。
 
+### 3.1 libcef（官方 binary，非重编）
+
+矩阵默认包含 `libcef`，产出仅：
+
+- `linux-x64-shared-release/libcef`
+- `linux-arm64-shared-release/libcef`
+
+容器内需能看到归档 `archives/libcef/*_linux64.tar.bz2`（或已解压的 `sources/libcef/src/`）。  
+若本机构建不含 CEF 归档，向一键脚本追加 `--skip-libcef`（会透传给矩阵）：
+
+```bash
+./docker/run_linux_matrix_in_docker.sh --arch amd64 --jobs 16 --sync --skip-libcef
+```
+
+单独打包：`./scripts/package_libcef_linux.sh --arch x64 --dest-root dist/linux-x64-shared-release/libcef`
+
 ---
 
 ## 4. 镜像内容（`docker/Dockerfile.linux-glibc228`）

@@ -47,4 +47,5 @@ sources/libcef/src/cef_binary_*_linuxarm64/
 - `linux-x64-shared-release/libcef`
 - `linux-arm64-shared-release/libcef`
 
-打包脚本：待补 `scripts/package_libcef_linux.sh`（对齐 `package_libcef_windows.ps1`），再 `sync_to_prebuilt` 并打制品 `deps-*` tag。详见 `sources/libcef/README.md`。
+打包脚本：`scripts/package_libcef_linux.sh`（对齐 `package_libcef_windows.ps1`）。  
+也可由矩阵脚本自动调用（`--skip-libcef` 可跳过）。完成后 `sync` 进 prebuilt 并打制品 `deps-*` tag。详见 `sources/libcef/README.md`。
