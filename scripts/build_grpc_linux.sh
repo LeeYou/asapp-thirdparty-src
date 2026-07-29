@@ -17,6 +17,7 @@ INSTALL_ROOT=""
 BUILD_ROOT=""
 JOBS="$(nproc 2>/dev/null || echo 4)"
 
+CLEAN=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --arch) ARCH="$2"; shift 2 ;;
@@ -27,9 +28,13 @@ while [[ $# -gt 0 ]]; do
     --install-root) INSTALL_ROOT="$2"; shift 2 ;;
     --build-root) BUILD_ROOT="$2"; shift 2 ;;
     --jobs) JOBS="$2"; shift 2 ;;
+    --clean) CLEAN=1; shift ;;
     *) echo "Unknown arg: $1" >&2; exit 1 ;;
   esac
 done
+[[ "$CLEAN" -eq 1 ]] && export ASAPP_DEP_CLEAN=1
+# shellcheck source=AsAppDepIncremental.sh
+source "$REPO_ROOT/scripts/AsAppDepIncremental.sh"
 
 if [[ "$ARCH" != "x64" && "$ARCH" != "arm64" ]]; then
   echo "ERROR: build_grpc_linux.sh supports --arch x64|arm64 (got $ARCH)" >&2
@@ -50,6 +55,11 @@ INSTALL_ROOT="${INSTALL_ROOT:-$REPO_ROOT/dist/$SLICE/grpc}"
 BUILD_ROOT="${BUILD_ROOT:-$REPO_ROOT/build/$SLICE/grpc}"
 TOOLCHAIN="$REPO_ROOT/cmake/toolchains/linux-clang.cmake"
 
+# 增量：已安装则跳过（--clean 强制重编）
+if asapp_dep_skip_if_ready "grpc" "$INSTALL_ROOT/PACKAGE_META.yaml"; then
+  exit 0
+fi
+
 if [[ ! -f "$SOURCE_ROOT/CMakeLists.txt" ]]; then
   echo "ERROR: gRPC CMakeLists.txt not found: $SOURCE_ROOT" >&2
   exit 1
@@ -65,31 +75,10 @@ if [[ ! -f "$TOOLCHAIN" ]]; then
   exit 1
 fi
 
-# 早期失败：Ubuntu 18.04 + 仅 GCC7 libstdc++ 时 Abseil 会缺 <filesystem>
-if command -v clang++ >/dev/null 2>&1; then
-  _fs_probe="$(mktemp -t asapp_fs_probe_XXXXXX.cpp)"
-  _fs_bin="$(mktemp -t asapp_fs_probe_XXXXXX)"
-  cat >"$_fs_probe" <<'EOF'
-#include <filesystem>
-int main() { return std::filesystem::temp_directory_path().empty() ? 1 : 0; }
-EOF
-  _fs_ok=0
-  if [[ -d /usr/lib/gcc/x86_64-linux-gnu/8 ]] || [[ -d /usr/lib/gcc/x86_64-linux-gnu/9 ]] \
-    || [[ -d /usr/lib/gcc/x86_64-linux-gnu/10 ]] || [[ -d /usr/lib/gcc/x86_64-linux-gnu/11 ]]; then
-    # 探测时带上与 toolchain 相同的思路（具体 flags 由 CMake toolchain 注入）
-    if clang++ -std=c++17 --gcc-toolchain=/usr -o "$_fs_bin" "$_fs_probe" >/dev/null 2>&1; then
-      _fs_ok=1
-    fi
-  elif clang++ -std=c++17 -o "$_fs_bin" "$_fs_probe" >/dev/null 2>&1; then
-    _fs_ok=1
-  fi
-  rm -f "$_fs_probe" "$_fs_bin"
-  if [[ "$_fs_ok" -ne 1 ]]; then
-    echo "ERROR: clang++ cannot compile #include <filesystem> (needed by gRPC/Abseil)." >&2
-    echo "  On Ubuntu 18.04: apt-get install -y g++-8   then rm -rf build/linux-x64-* and retry." >&2
-    echo "  Prefer Ubuntu 20.04+ build hosts. See docs/BUILD.md." >&2
-    exit 1
-  fi
+# 早期失败：缺 <filesystem> 或 GCC8 未链 -lstdc++fs
+if ! asapp_dep_clang_filesystem_ok; then
+  asapp_dep_print_filesystem_help
+  exit 1
 fi
 
 if [[ -z "$OPENSSL_ROOT" ]]; then

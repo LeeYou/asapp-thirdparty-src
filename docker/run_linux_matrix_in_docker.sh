@@ -148,6 +148,8 @@ fi
 RUN_ENV=(
   -e ASAPP_PREBUILT_ROOT=/work/src/prebuilt
   -e HOME=/tmp
+  # bash -l 会重置 PATH，丢掉 /opt/cmake；显式钉死工具链路径
+  -e "PATH=/opt/cmake/bin:/opt/llvm/bin:/usr/local/bin:/usr/bin:/bin"
 )
 # 容器内若还需访问 GitHub（子模块/补丁），把代理传进去
 [[ -n "${HTTP_PROXY_ARG}" ]] && RUN_ENV+=(-e "HTTP_PROXY=${HTTP_PROXY_ARG}" -e "http_proxy=${HTTP_PROXY_ARG}")
@@ -160,6 +162,7 @@ echo "==> docker run ${IMAGE} (${PLATFORM})"
 echo "==> repo: ${REPO_ROOT}"
 echo "==> cmd:  ${MATRIX_CMD[*]}"
 
+# 使用 bash -c（非 login），避免 /etc/profile 清掉 PATH
 docker run --rm -it \
   --platform "${PLATFORM}" \
   --user "${UID_GID}" \
@@ -167,4 +170,4 @@ docker run --rm -it \
   -w /work/src \
   "${RUN_ENV[@]}" \
   "${IMAGE}" \
-  bash -lc "${MATRIX_CMD[*]}"
+  bash -c "${MATRIX_CMD[*]}"

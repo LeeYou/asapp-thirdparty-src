@@ -13,6 +13,7 @@ PACKAGES="nlohmann_json,stb"
 INSTALL_ROOT=""
 JOBS="$(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 4)"
 
+CLEAN=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --os) OS="$2"; shift 2 ;;
@@ -22,13 +23,17 @@ while [[ $# -gt 0 ]]; do
     --packages) PACKAGES="$2"; shift 2 ;;
     --install-root) INSTALL_ROOT="$2"; shift 2 ;;
     --jobs) JOBS="$2"; shift 2 ;;
+    --clean) CLEAN=1; shift ;;
     *) echo "Unknown arg: $1"; exit 1 ;;
   esac
 done
+[[ "$CLEAN" -eq 1 ]] && export ASAPP_DEP_CLEAN=1
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 # shellcheck source=AsAppDepBuildParallel.sh
 source "$REPO_ROOT/scripts/AsAppDepBuildParallel.sh"
+# shellcheck source=AsAppDepIncremental.sh
+source "$REPO_ROOT/scripts/AsAppDepIncremental.sh"
 JOBS="$(asapp_dep_normalize_jobs "${JOBS:-}")"
 SLICE="${OS}-${ARCH}-${LINKAGE}-${CONFIG}"
 INSTALL_ROOT="${INSTALL_ROOT:-$REPO_ROOT/dist/$SLICE}"
@@ -73,7 +78,16 @@ build_one_cmake_pkg() {
     [[ "$pkg_jobs" -lt 1 ]] && pkg_jobs=1
   fi
 
-  rm -rf "$pkg_build" "$pkg_dest"
+  if asapp_dep_skip_if_ready "$pkg" "$pkg_dest/PACKAGE_META.yaml"; then
+    return 0
+  fi
+
+  # 默认清掉后全量编；有 build 树且未 --clean 时保留 ninja 增量
+  if asapp_dep_want_clean || [[ ! -f "$pkg_build/build.ninja" ]]; then
+    rm -rf "$pkg_build" "$pkg_dest"
+  else
+    rm -rf "$pkg_dest"
+  fi
   mkdir -p "$pkg_build" "$pkg_dest"
 
   echo "Building: $pkg (pkg_jobs=$pkg_jobs)"

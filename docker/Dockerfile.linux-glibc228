@@ -89,10 +89,14 @@ RUN set -eux; \
     mkdir -p /opt/cmake; \
     tar -xzf /tmp/cmake.tgz -C /opt/cmake --strip-components=1; \
     rm -f /tmp/cmake.tgz; \
+    ln -sf /opt/cmake/bin/cmake /usr/local/bin/cmake; \
+    ln -sf /opt/cmake/bin/ctest /usr/local/bin/ctest; \
+    ln -sf /opt/cmake/bin/cpack /usr/local/bin/cpack; \
     cmake --version
 
-# Clang 15（官方 LLVM 预编译包）
-ARG LLVM_VERSION=15.0.7
+# Clang ≥ 15（官方预编译包）
+# 注意：15.0.7 无 x86_64/aarch64 Linux 资产（仅 apple/powerpc）；故钉 15.0.6
+ARG LLVM_VERSION=15.0.6
 RUN set -eux; \
     ARCH="$(uname -m)"; \
     case "$ARCH" in \

@@ -15,6 +15,7 @@ INSTALL_ROOT=""
 BUILD_ROOT=""
 JOBS="$(nproc 2>/dev/null || echo 4)"
 
+CLEAN=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --arch) ARCH="$2"; shift 2 ;;
@@ -24,9 +25,13 @@ while [[ $# -gt 0 ]]; do
     --install-root) INSTALL_ROOT="$2"; shift 2 ;;
     --build-root) BUILD_ROOT="$2"; shift 2 ;;
     --jobs) JOBS="$2"; shift 2 ;;
+    --clean) CLEAN=1; shift ;;
     *) echo "Unknown arg: $1" >&2; exit 1 ;;
   esac
 done
+[[ "$CLEAN" -eq 1 ]] && export ASAPP_DEP_CLEAN=1
+# shellcheck source=AsAppDepIncremental.sh
+source "$REPO_ROOT/scripts/AsAppDepIncremental.sh"
 
 if [[ "$ARCH" != "x64" && "$ARCH" != "arm64" ]]; then
   echo "ERROR: build_libffi_linux.sh supports --arch x64|arm64 (got $ARCH)" >&2
@@ -45,6 +50,10 @@ SLICE="linux-${ARCH}-${LINKAGE}-${CONFIG}"
 SOURCE_ROOT="${SOURCE_ROOT:-$REPO_ROOT/sources/libffi/src}"
 INSTALL_ROOT="${INSTALL_ROOT:-$REPO_ROOT/dist/$SLICE/libffi}"
 BUILD_ROOT="${BUILD_ROOT:-$REPO_ROOT/build/$SLICE/libffi}"
+
+if asapp_dep_skip_if_ready "libffi" "$INSTALL_ROOT/PACKAGE_META.yaml"; then
+  exit 0
+fi
 
 if [[ ! -f "$SOURCE_ROOT/configure" ]]; then
   echo "ERROR: libffi configure not found under $SOURCE_ROOT" >&2

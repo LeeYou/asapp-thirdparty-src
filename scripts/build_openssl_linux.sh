@@ -17,6 +17,7 @@ INSTALL_ROOT=""
 BUILD_ROOT=""
 JOBS="$(nproc 2>/dev/null || echo 4)"
 
+CLEAN=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --arch) ARCH="$2"; shift 2 ;;
@@ -26,9 +27,13 @@ while [[ $# -gt 0 ]]; do
     --install-root) INSTALL_ROOT="$2"; shift 2 ;;
     --build-root) BUILD_ROOT="$2"; shift 2 ;;
     --jobs) JOBS="$2"; shift 2 ;;
+    --clean) CLEAN=1; shift ;;
     *) echo "Unknown arg: $1" >&2; exit 1 ;;
   esac
 done
+[[ "$CLEAN" -eq 1 ]] && export ASAPP_DEP_CLEAN=1
+# shellcheck source=AsAppDepIncremental.sh
+source "$REPO_ROOT/scripts/AsAppDepIncremental.sh"
 
 if [[ "$ARCH" != "x64" && "$ARCH" != "arm64" ]]; then
   echo "ERROR: build_openssl_linux.sh supports --arch x64|arm64 (got $ARCH)" >&2
@@ -47,6 +52,10 @@ SLICE="linux-${ARCH}-${LINKAGE}-${CONFIG}"
 SOURCE_ROOT="${SOURCE_ROOT:-$REPO_ROOT/sources/openssl/src}"
 INSTALL_ROOT="${INSTALL_ROOT:-$REPO_ROOT/dist/$SLICE/openssl}"
 BUILD_ROOT="${BUILD_ROOT:-$REPO_ROOT/build/$SLICE/openssl}"
+
+if asapp_dep_skip_if_ready "openssl" "$INSTALL_ROOT/PACKAGE_META.yaml"; then
+  exit 0
+fi
 
 if [[ ! -f "$SOURCE_ROOT/Configure" ]]; then
   echo "ERROR: OpenSSL Configure not found under $SOURCE_ROOT" >&2

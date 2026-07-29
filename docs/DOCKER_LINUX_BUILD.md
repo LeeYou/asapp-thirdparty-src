@@ -72,7 +72,7 @@ asapp-linux-build:glibc228-arm64
 
 镜像内预装：
 
-- 构建：`clang-15`、`g++-8`（或系统 g++-8）、`ninja-build`、`cmake`（≥3.24 官方包）、`perl`、`make`、`autoconf`、`libtool`、`pkg-config`、`git`、`git-lfs`
+- 构建：`clang` **15.0.6**（官方 Linux 预编译；15.0.7 无 x64/arm64 Linux 资产）、`g++-8`、`ninja-build`、`cmake`（≥3.24）、`perl`、`make`、`autoconf`、`libtool`、`pkg-config`、`git`、`git-lfs`
 - 校验：启动时打印 `ldd --version`、`clang++ --version`、`cmake --version`
 
 ---
@@ -106,19 +106,19 @@ chmod +x scripts/*.sh docker/*.sh
 **推荐一键（含代理）：**
 
 ```bash
-# 把 7890 换成你的本地 HTTP 代理端口
-export ASAPP_DOCKER_PROXY=http://127.0.0.1:7890
+# 代理需是「容器内可达」地址：
+# - Docker Desktop: http://host.docker.internal:7890
+# - 局域网代理:     http://192.168.x.x:7890
+# - 勿用 http://127.0.0.1:7890（指向容器自身）
+export ASAPP_DOCKER_PROXY=http://host.docker.internal:7890
 
 ./docker/build_linux_image.sh --arch amd64 --proxy "$ASAPP_DOCKER_PROXY"
-# 等价拆分：
-# ./docker/build_linux_image.sh --arch amd64 \
-#   --http-proxy "$ASAPP_DOCKER_PROXY" --https-proxy "$ASAPP_DOCKER_PROXY"
 ```
 
 **手写 buildx（与脚本等价）：**
 
 ```bash
-PROXY=http://127.0.0.1:7890
+PROXY=http://host.docker.internal:7890
 
 docker buildx build \
   --platform linux/amd64 \
@@ -150,7 +150,7 @@ docker buildx build \
 cd /path/to/asapp-thirdparty-src
 
 # 有代理（推荐）
-./docker/build_linux_image.sh --arch amd64 --proxy http://127.0.0.1:7890
+./docker/build_linux_image.sh --arch amd64 --proxy http://host.docker.internal:7890
 
 # 无代理（直连 GitHub 可用时）
 ./docker/build_linux_image.sh --arch amd64
@@ -164,14 +164,14 @@ cd /path/to/asapp-thirdparty-src
 # 一次性：注册 qemu（若尚未）
 docker run --privileged --rm tonistiigi/binfmt --install all
 
-./docker/build_linux_image.sh --arch arm64 --proxy http://127.0.0.1:7890
+./docker/build_linux_image.sh --arch arm64 --proxy http://host.docker.internal:7890
 ```
 
 ### 5.5 在容器内编第三方（x64 四切片）
 
 ```bash
 REPO="$(pwd)"   # asapp-thirdparty-src 根
-PROXY=http://127.0.0.1:7890   # 容器内若还需访问外网时传入
+PROXY=http://host.docker.internal:7890   # 容器内若还需访问外网时传入
 
 docker run --rm -it \
   --user "$(id -u):$(id -g)" \
@@ -181,7 +181,7 @@ docker run --rm -it \
   -e HTTP_PROXY="$PROXY" -e HTTPS_PROXY="$PROXY" \
   -e http_proxy="$PROXY" -e https_proxy="$PROXY" \
   asapp-linux-build:glibc228-amd64 \
-  bash -lc './scripts/build_linux_x64_matrix.sh --jobs $(nproc) --sync'
+  bash -c 'export PATH=/opt/cmake/bin:/opt/llvm/bin:/usr/local/bin:$PATH; ./scripts/build_linux_x64_matrix.sh --jobs $(nproc) --sync'
 ```
 
 一键脚本（等价，含构建镜像代理）：
@@ -189,7 +189,7 @@ docker run --rm -it \
 ```bash
 ./docker/run_linux_matrix_in_docker.sh \
   --arch amd64 --jobs 16 --sync --build-image \
-  --proxy http://127.0.0.1:7890
+  --proxy http://host.docker.internal:7890
 ```
 
 ### 5.6 arm64 切片（容器）
@@ -197,23 +197,39 @@ docker run --rm -it \
 ```bash
 ./docker/run_linux_matrix_in_docker.sh \
   --arch arm64 --jobs 8 --sync --build-image \
-  --proxy http://127.0.0.1:7890
+  --proxy http://host.docker.internal:7890
 # 容器内等价于：./scripts/build_linux_arm64_matrix.sh --jobs 8 --sync
 ```
 
-### 5.7 编完后在制品仓打 tag
+### 5.7 编完后在制品仓打 tag（务必走 Git LFS）
+
+Linux 切片含大型 `.a` / `.so`（gRPC static debug 单文件可超 100MB），**必须**由 LFS 托管，否则 `git push` 会被 GitHub 拒绝。
 
 ```bash
 cd prebuilt
-git status
+
+# 确认 .gitattributes 已覆盖 Linux 二进制（*.a / *.so / *.so.* 等）
+cat .gitattributes
+
+# 若刚补了 LFS 规则，对已跟踪大文件做一次迁移（仅本机、未推送的提交）：
+# git lfs migrate import --no-rewrite --include="*.a,*.so,*.so.*,*.lib,*.dll"
+
 git add linux-x64-*   # 以及 linux-arm64-*（若已产出）
+git add .gitattributes MANIFEST.yaml licenses 2>/dev/null || true
+git status
 git commit -m "Add linux glibc228 slices for UOS/Kylin"
+
+# 校验：大文件应为 LFS pointer（约 130 字节的文本），而不是真实二进制
+git show HEAD:linux-x64-static-debug/grpc/lib/libgrpc.a | head
+
 git tag deps-YYYY.MM.DD-N
 git push origin HEAD
+git lfs push origin --all
 git push origin deps-YYYY.MM.DD-N
 cd ..
 git add prebuilt
 git commit -m "Point prebuilt to deps-YYYY.MM.DD-N"
+git push
 ```
 
 AsApp：`git -C third_party/prebuilt fetch --tags && git submodule update --remote`（或钉到同一 tag）后：
@@ -258,6 +274,8 @@ objdump -T ./asapp_host | grep -o 'GLIBC_[0-9.]*' | sort -V | uniq | tail
 | `--sync` 找不到 prebuilt | 子模块未 init 或 root 指错 | `git submodule update --init prebuilt`；`--prebuilt-root` 指向 `.../prebuilt` |
 | arm64 上 OpenSSL Configure 失败 | 仍用 `linux-x86_64` 目标 | 更新后的 `build_openssl_linux.sh` 按 `uname -m` 选择 `linux-aarch64` |
 | `curl: (7) Failed to connect` / GitHub 超时 | 构建期未走代理 | `./docker/build_linux_image.sh --proxy http://host:port` |
+| `cmake: command not found`（容器内） | `bash -lc` / login 重置 PATH，丢掉 `/opt/cmake/bin` | 已改为 `bash -c` + 显式 `PATH=`；**无需重编镜像**即可重跑 `run_linux_matrix_in_docker.sh` |
+| `cannot compile #include <filesystem>` | GCC8 需 `-lstdc++fs`，旧探测未链接 | 已修 `AsAppDepIncremental.sh`；**直接重跑矩阵**（openssl 等会 SKIP） |
 | `FROM debian:10-slim` 拉失败 | 守护进程无代理 | 配置 Docker Desktop / daemon `proxies`，或系统级 HTTP(S)_PROXY |
 
 ---

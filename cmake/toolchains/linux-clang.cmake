@@ -47,6 +47,8 @@ if(NOT _asapp_gcc_toolchain_prefix STREQUAL "")
             "linux-clang: libstdc++ from GCC ${_asapp_gcc_ver} (${_asapp_gcc_triple})")
         # GCC 8 的 filesystem 仍在 libstdc++fs；9+ 已并入 libstdc++
         if(_asapp_gcc_ver STREQUAL "8")
+            # STANDARD_LIBRARIES 挂在链接行末尾，避免 -l 在 .o 之前导致 undefined reference
+            string(APPEND CMAKE_CXX_STANDARD_LIBRARIES " -lstdc++fs")
             string(APPEND CMAKE_EXE_LINKER_FLAGS_INIT " -lstdc++fs")
             string(APPEND CMAKE_SHARED_LINKER_FLAGS_INIT " -lstdc++fs")
             string(APPEND CMAKE_MODULE_LINKER_FLAGS_INIT " -lstdc++fs")

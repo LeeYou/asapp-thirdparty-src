@@ -36,12 +36,19 @@ while [[ $# -gt 0 ]]; do
     --skip-openssl) SKIP_OPENSSL=1; shift ;;
     --skip-libffi) SKIP_LIBFFI=1; shift ;;
     --skip-grpc) SKIP_GRPC=1; shift ;;
+    --clean) export ASAPP_DEP_CLEAN=1; shift ;;
     *) echo "Unknown arg: $1"; exit 1 ;;
   esac
 done
 
 JOBS="$(asapp_dep_normalize_jobs "$JOBS")"
 export CMAKE_BUILD_PARALLEL_LEVEL="$JOBS"
+
+CLEAN_ARGS=()
+if [[ "${ASAPP_DEP_CLEAN:-0}" == "1" ]]; then
+  CLEAN_ARGS=(--clean)
+  echo "NOTE: --clean / ASAPP_DEP_CLEAN=1 — force rebuild all packages in this matrix"
+fi
 
 LINKAGES=(static shared)
 CONFIGS=(debug release)
@@ -105,7 +112,7 @@ fi
 echo "=== Linux x64 matrix: linkages=${LINKAGES[*]} configs=${CONFIGS[*]} ==="
 echo "  cmake   : ${CMAKE_JOINED:-"(none)"}"
 echo "  openssl : $WANT_OPENSSL  libffi: $WANT_LIBFFI  grpc: $WANT_GRPC  jobs=$JOBS"
-echo "  note    : ninja/make use -j$JOBS; openssl∥libffi; cmake pkgs may run PKG_PARALLEL concurrently"
+echo "  note    : incremental skip if PACKAGE_META exists; --clean forces rebuild; ninja -j$JOBS"
 
 for link in "${LINKAGES[@]}"; do
   for cfg in "${CONFIGS[@]}"; do
@@ -118,7 +125,8 @@ for link in "${LINKAGES[@]}"; do
     if [[ -n "$CMAKE_JOINED" ]]; then
       "$REPO_ROOT/scripts/build.sh" \
         --os linux --arch x64 --linkage "$link" --config "$cfg" \
-        --packages "$CMAKE_JOINED" --install-root "$dist" --jobs "$JOBS"
+        --packages "$CMAKE_JOINED" --install-root "$dist" --jobs "$JOBS" \
+        "${CLEAN_ARGS[@]}"
     fi
 
     # openssl 与 libffi 无依赖，可并行
@@ -127,14 +135,16 @@ for link in "${LINKAGES[@]}"; do
     if [[ "$WANT_OPENSSL" -eq 1 ]]; then
       "$REPO_ROOT/scripts/build_openssl_linux.sh" \
         --arch x64 --linkage "$link" --config "$cfg" \
-        --install-root "$dist/openssl" --jobs "$JOBS" &
+        --install-root "$dist/openssl" --jobs "$JOBS" \
+        "${CLEAN_ARGS[@]}" &
       pids+=("$!")
       names+=("openssl")
     fi
     if [[ "$WANT_LIBFFI" -eq 1 ]]; then
       "$REPO_ROOT/scripts/build_libffi_linux.sh" \
         --arch x64 --linkage "$link" --config "$cfg" \
-        --install-root "$dist/libffi" --jobs "$JOBS" &
+        --install-root "$dist/libffi" --jobs "$JOBS" \
+        "${CLEAN_ARGS[@]}" &
       pids+=("$!")
       names+=("libffi")
     fi
@@ -149,7 +159,8 @@ for link in "${LINKAGES[@]}"; do
       "$REPO_ROOT/scripts/build_grpc_linux.sh" \
         --arch x64 --linkage "$link" --config "$cfg" \
         --openssl-root "$dist/openssl" \
-        --install-root "$dist/grpc" --jobs "$JOBS"
+        --install-root "$dist/grpc" --jobs "$JOBS" \
+        "${CLEAN_ARGS[@]}"
     fi
 
     if [[ "$SYNC" -eq 1 ]]; then

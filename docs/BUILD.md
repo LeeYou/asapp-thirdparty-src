@@ -116,6 +116,22 @@ PROXY=http://127.0.0.1:7890
 ./docker/run_linux_matrix_in_docker.sh --arch arm64 --jobs 8 --sync --build-image --proxy "$PROXY"
 ```
 
+### 增量编译（默认）
+
+脚本**默认增量**：若 `dist/<slice>/<pkg>/PACKAGE_META.yaml` 已存在则 **SKIP**，不会重编 OpenSSL/gRPC 等。  
+失败重跑可直接再执行矩阵，已完成的包会跳过。
+
+- 强制全量重编：矩阵加 `--clean`，或 `ASAPP_DEP_CLEAN=1`
+- CMake 包：未 `--clean` 且已有 `build.ninja` 时保留构建树做 ninja 增量
+
+```bash
+# 接着上次失败继续（推荐）
+./scripts/build_linux_x64_matrix.sh --jobs 16 --sync
+
+# 全量重来
+./scripts/build_linux_x64_matrix.sh --jobs 16 --sync --clean
+```
+
 ### 并行编译
 
 - `--jobs N`：传给 **ninja/make 的 `-jN`**（gRPC 等大包主要靠这个）
