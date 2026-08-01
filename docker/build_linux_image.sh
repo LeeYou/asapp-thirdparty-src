@@ -15,6 +15,7 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 ARCH="amd64"
 IMAGE=""
 PROXY=""
+NO_CACHE=0
 HTTP_PROXY_ARG="${HTTP_PROXY:-${http_proxy:-}}"
 HTTPS_PROXY_ARG="${HTTPS_PROXY:-${https_proxy:-}}"
 ALL_PROXY_ARG="${ALL_PROXY:-${all_proxy:-}}"
@@ -31,6 +32,7 @@ usage() {
   --https-proxy URL      仅设置 HTTPS 代理
   --all-proxy URL        socks 等（可选）
   --no-proxy LIST        NO_PROXY（默认 localhost,127.0.0.1）
+  --no-cache             禁用 buildx 缓存（apt 层变更后务必使用）
   -h, --help             帮助
 
 也可用环境变量：HTTP_PROXY / HTTPS_PROXY / ALL_PROXY / NO_PROXY（及小写）。
@@ -67,6 +69,10 @@ while [[ $# -gt 0 ]]; do
     --no-proxy)
       NO_PROXY_ARG="${2:?}"
       shift 2
+      ;;
+    --no-cache)
+      NO_CACHE=1
+      shift
       ;;
     -h|--help)
       usage
@@ -106,6 +112,10 @@ BUILD_ARGS=(
   -t "${IMAGE}"
   --load
 )
+if [[ "${NO_CACHE}" -eq 1 ]]; then
+  BUILD_ARGS+=(--no-cache)
+  echo "==> docker build --no-cache（强制重跑 apt/工具链层）"
+fi
 
 append_proxy_arg() {
   local key="$1"

@@ -6,6 +6,7 @@
 # 并生成 AsApp::libcef 的 Config。
 # 默认排除 chrome-sandbox（体积/权限；app-gui 当前 USE_SANDBOX=OFF）。
 # 官方包通常仅提供 Release runtime → 对应 shared-release 切片。
+# 发布场景：拷贝后对 Release/*.so 执行 strip（官方 Linux 包含 ~1GB 调试符号）。
 #
 # 用法：
 #   ./scripts/package_libcef_linux.sh --arch x64 \
@@ -163,6 +164,38 @@ if [[ ! -f "$RELEASE_DST/libcef.so" ]]; then
   exit 1
 fi
 
+# 发布体积：官方 Linux CEF 的 libcef.so 等带完整调试符号（常 >1GB）。
+# strip 后通常降至 ~200MB 量级，不影响运行时行为；仅丢失有意义的本地栈符号。
+strip_cef_release_sos() {
+  local dir="$1"
+  local strip_bin=""
+  local so before after
+
+  if command -v strip >/dev/null 2>&1; then
+    strip_bin="strip"
+  elif command -v llvm-strip >/dev/null 2>&1; then
+    strip_bin="llvm-strip"
+  else
+    echo "WARNING: strip/llvm-strip not found; keeping unstripped CEF .so (large)." >&2
+    return 0
+  fi
+
+  shopt -s nullglob
+  for so in "$dir"/*.so "$dir"/*.so.*; do
+    [[ -f "$so" && ! -L "$so" ]] || continue
+    before="$(stat -c '%s' "$so" 2>/dev/null || stat -f '%z' "$so")"
+    if "$strip_bin" --strip-unneeded "$so" 2>/dev/null || "$strip_bin" -S "$so" 2>/dev/null; then
+      after="$(stat -c '%s' "$so" 2>/dev/null || stat -f '%z' "$so")"
+      echo "Stripped $(basename "$so"): $((before / 1024 / 1024))MB -> $((after / 1024 / 1024))MB ($strip_bin)"
+    else
+      echo "WARNING: failed to strip $so" >&2
+    fi
+  done
+  shopt -u nullglob
+}
+
+strip_cef_release_sos "$RELEASE_DST"
+
 # Resources（不含 locales）+ 顶层 locales（与 Windows / 历史 stage 一致）
 RES_SRC="$BUNDLE/Resources"
 RES_DST="$DEST_ROOT/Resources"
@@ -183,10 +216,11 @@ if [[ -d "$RES_SRC" ]]; then
   fi
 fi
 
-# lib/：符号链接到 Release/libcef.so（运行时 .so 仅保留在 Release/，避免体积翻倍）
+# lib/：写 GNU ld INPUT 脚本指向 Release/（勿用裸 symlink：经 Windows/Git 同步会落成
+# 文本 "../Release/libcef.so"，ld 报 file format not recognized）
 LIB_DST="$DEST_ROOT/lib"
 mkdir -p "$LIB_DST"
-ln -sfn "../Release/libcef.so" "$LIB_DST/libcef.so"
+printf 'INPUT(../Release/libcef.so)\n' >"$LIB_DST/libcef.so"
 
 CMAKE_DIR="$DEST_ROOT/lib/cmake/libcef"
 mkdir -p "$CMAKE_DIR"
@@ -202,7 +236,7 @@ if(WIN32)
     INTERFACE_INCLUDE_DIRECTORIES "${_LIBCEF_PREFIX}/include")
 else()
   set_target_properties(AsApp::libcef PROPERTIES
-    IMPORTED_LOCATION "${_LIBCEF_PREFIX}/lib/libcef.so"
+    IMPORTED_LOCATION "${_LIBCEF_PREFIX}/Release/libcef.so"
     INTERFACE_INCLUDE_DIRECTORIES "${_LIBCEF_PREFIX}/include")
 endif()
 set(AsApp_libcef_PREFIX "${_LIBCEF_PREFIX}" CACHE PATH "AsApp libcef package root")
@@ -219,7 +253,7 @@ version: "$VERSION"
 kind: shared-runtime
 license: BSD-like
 linux_min_glibc: "2.28"
-notes: "Official CEF binary stage (no rebuild). chrome-sandbox excluded by default. Wrapper sources under libcef_dll/. Runtime SOs live in Release/ (CEF upstream layout)."
+notes: "Official CEF binary stage (no rebuild). chrome-sandbox excluded by default. Release/*.so stripped for publish size (upstream ships ~1GB debug symbols). Wrapper sources under libcef_dll/. Runtime SOs live in Release/ (CEF upstream layout)."
 linkage: shared
 toolchain:
   generator: n/a-official-binary

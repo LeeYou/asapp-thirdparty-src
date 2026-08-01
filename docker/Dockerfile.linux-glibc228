@@ -69,7 +69,33 @@ RUN set -eux; \
         python3 \
         unzip \
         file \
-        binutils; \
+        binutils \
+        dpkg-dev \
+        fakeroot \
+        rpm \
+        libfontconfig1-dev \
+        libx11-dev \
+        libxext-dev \
+        libxcomposite-dev \
+        libxdamage-dev \
+        libxfixes-dev \
+        libxrandr-dev \
+        libxkbcommon-dev \
+        libgtk-3-dev \
+        libasound2-dev \
+        libatk1.0-dev \
+        libatk-bridge2.0-dev \
+        libatspi2.0-dev \
+        libcairo2-dev \
+        libpango1.0-dev \
+        libdrm-dev \
+        libgbm-dev \
+        libcups2-dev \
+        libgnutls28-dev \
+        libavahi-client-dev \
+        libnss3-dev \
+        libnspr4-dev \
+        libdbus-1-dev; \
     update-alternatives --install /usr/bin/gcc gcc /usr/bin/gcc-8 80; \
     update-alternatives --install /usr/bin/g++ g++ /usr/bin/g++-8 80; \
     rm -rf /var/lib/apt/lists/*
@@ -133,13 +159,25 @@ ENV HTTP_PROXY= \
 
 WORKDIR /work/src
 
-# 启动自检：确认 glibc / 工具链
+# 启动自检：确认 glibc / 工具链 / CEF 系统 -dev（避免空镜像被拿去编 GUI）
 RUN set -eux; \
     echo "=== AsApp Linux build image (glibc 2.28 / Debian 10) ==="; \
     ldd --version | head -n1; \
     cmake --version | head -n1; \
     clang++ --version | head -n1; \
     g++ --version | head -n1; \
-    ninja --version
+    ninja --version; \
+    test -x /usr/bin/pkg-config; \
+    for m in x11 xext gtk+-3.0 alsa atk atspi-2 cairo pango pangocairo \
+             xkbcommon libdrm gbm; do \
+      /usr/bin/pkg-config --exists "$m" \
+        || { echo "ERROR: pkg-config module missing: $m"; \
+             /usr/bin/pkg-config --list-all | head -n 50; exit 1; }; \
+      echo "pkg-config OK: $m=$(/usr/bin/pkg-config --modversion "$m")"; \
+    done; \
+    test -f /usr/include/X11/Xlib.h; \
+    test -f /usr/include/gtk-3.0/gtk/gtk.h; \
+    test -f /usr/include/cups/cups.h; \
+    test -e /usr/lib/x86_64-linux-gnu/libcups.so
 
 CMD ["bash"]

@@ -89,6 +89,7 @@ asapp-linux-build:glibc228-arm64
 镜像内预装：
 
 - 构建：`clang` **15.0.6**（官方 Linux 预编译；15.0.7 无 x64/arm64 Linux 资产）、`g++-8`、`ninja-build`、`cmake`（≥3.24）、`perl`、`make`、`autoconf`、`libtool`、`pkg-config`、`git`、`git-lfs`
+- 打包：`dpkg-dev`、`fakeroot`、`rpm`、`xz-utils`（AsApp `cpack` 打 DEB/RPM/TGZ）
 - 校验：启动时打印 `ldd --version`、`clang++ --version`、`cmake --version`
 
 ---
@@ -248,14 +249,27 @@ git commit -m "Point prebuilt to deps-YYYY.MM.DD-N"
 git push
 ```
 
-AsApp：`git -C third_party/prebuilt fetch --tags && git submodule update --remote`（或钉到同一 tag）后：
+AsApp：`git -C third_party/prebuilt fetch --tags && git -C third_party/prebuilt checkout deps-2026.07.29-3`（并 `git lfs pull --include="linux-x64-shared-release/**"`）后，在**同一镜像**内编译打包：
 
 ```bash
-cmake --preset linux-x64-release
-cmake --build --preset linux-x64-release
+# 在 AsApp 仓库根（推荐一键脚本）
+./docker/run_linux_x64_package.sh --jobs 16 --build-image \
+  --thirdparty-src /path/to/asapp-thirdparty-src \
+  --proxy http://host.docker.internal:7890
+
+# 等价手写（产物含 .deb）
+docker run --rm -it --platform linux/amd64 --user "$(id -u):$(id -g)" \
+  -v "$(pwd):/work/asapp:rw" -w /work/asapp \
+  -e PATH=/opt/cmake/bin:/opt/llvm/bin:/usr/local/bin:/usr/bin:/bin \
+  asapp-linux-build:glibc228-amd64 \
+  bash -c 'cmake --preset linux-x64-release-shared &&
+    cmake --build --preset linux-x64-release-shared --parallel "$(nproc)" &&
+    cpack --preset linux-x64-release-shared'
+# 产物：build-linux-x64-shared-release/dist/*.deb
 ```
 
-**业务仓同样建议在 `asapp-linux-build:glibc228-*` 容器内配置/编译**，避免宿主机新 glibc 链出不兼容二进制。
+> **须重建镜像**（旧镜像无 `dpkg-dev`/`fakeroot`）：`./docker/build_linux_image.sh --arch amd64 --proxy ...`  
+> **业务仓同样必须在 `asapp-linux-build:glibc228-*` 容器内配置/编译/打包**，避免宿主机新 glibc 链出不兼容二进制。
 
 ---
 
