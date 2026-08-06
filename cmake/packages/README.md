@@ -21,6 +21,7 @@
 | openssl | Windows：`scripts/build_openssl_windows.ps1`；Linux：`scripts/build_openssl_linux.sh` |
 | grpc | Windows：`scripts/build_grpc_windows.ps1`；Linux：`scripts/build_grpc_linux.sh` |
 | libffi | Windows：`cmake/packages/libffi.cmake`；Linux：`scripts/build_libffi_linux.sh`（autotools） |
+| zxing | `cmake/packages/zxing.cmake`（zxing-cpp 2.3.0；C++17；读码 + OLD 写码） |
 | libcef | `scripts/package_libcef_windows.ps1`（官方 binary stage；Linux 待办） |
 | boost / spdlog / nlohmann / stb | Windows 可用 header 脚本；POSIX 走本目录 CMake recipe |
 

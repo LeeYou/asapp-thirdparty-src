@@ -121,3 +121,17 @@ dependencies:
       - common/config
       - app-host
     notes: "Governed SQLite amalgamation for als_config.db; built as static lib asapp_sqlite3 via cmake/AsAppSqlite.cmake. Business modules must not open the DB directly."
+
+  - name: zxing
+    category: B
+    version: "2.3.0"
+    source_url: "https://github.com/zxing-cpp/zxing-cpp/archive/refs/tags/v2.3.0.zip"
+    source_ref: "sources/zxing/src"
+    source_sha256: "89b70f6175c6347d72bdc72722d643c0f461dc8a0d9bbc4c927a240b32b706f2"
+    license: "Apache-2.0"
+    commercial_use_allowed: true
+    patch_count: 0
+    patch_dir: patches/zxing
+    owner: ""
+    modules: []
+    notes: "Governed zxing-cpp (C++ barcode readers + OLD writers). Pin v2.3.0 for C++17; do not upgrade to v3.x (C++20). Recipe cmake/packages/zxing.cmake; consume via asapp_ensure_zxing() → ZXing::ZXing."

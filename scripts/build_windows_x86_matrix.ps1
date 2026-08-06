@@ -6,7 +6,7 @@
 .DESCRIPTION
   顺序：
   1) header-only（nlohmann/stb/spdlog/boost）布局到四切片
-  2) sqlite/gtest/libffi 经 build.ps1（VsDevCmd x86）编译四组合
+  2) sqlite/gtest/libffi/zxing 经 build.ps1（VsDevCmd x86）编译四组合
   3) openssl / grpc 专用脚本四组合
   4) libcef → 仅 windows-x86-shared-release（官方 binary）
   5) 可选 SyncToPrebuilt
@@ -14,7 +14,7 @@
   权威：AsApp docs/enterprisev3.0/third_party/09-主交付编译矩阵.md
 #>
 param(
-    [string]$Packages = "nlohmann_json,stb,spdlog,boost,sqlite,gtest,libffi,openssl,grpc,libcef",
+    [string]$Packages = "nlohmann_json,stb,spdlog,boost,sqlite,gtest,libffi,zxing,openssl,grpc,libcef",
     [string]$PrebuiltRoot = "",
     [switch]$SkipGrpc,
     [switch]$SkipOpenssl,
@@ -52,7 +52,7 @@ if ($ConfigFilter -ne "all") { $Configs = @($ConfigFilter) }
 
 $PkgList = @($Packages -split "," | ForEach-Object { $_.Trim() } | Where-Object { $_ })
 $HeaderPkgs = @("nlohmann_json", "stb", "spdlog", "boost") | Where-Object { $PkgList -contains $_ }
-$CmakePkgs = @("sqlite", "gtest", "libffi") | Where-Object { $PkgList -contains $_ }
+$CmakePkgs = @("sqlite", "gtest", "libffi", "zxing") | Where-Object { $PkgList -contains $_ }
 $WantOpenssl = ($PkgList -contains "openssl") -and (-not $SkipOpenssl)
 $WantGrpc = ($PkgList -contains "grpc") -and (-not $SkipGrpc)
 $WantLibcef = ($PkgList -contains "libcef") -and (-not $SkipLibcef)

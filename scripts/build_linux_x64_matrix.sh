@@ -15,7 +15,7 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 # shellcheck source=AsAppDepBuildParallel.sh
 source "$REPO_ROOT/scripts/AsAppDepBuildParallel.sh"
-PACKAGES="nlohmann_json,stb,spdlog,boost,sqlite,gtest,libffi,openssl,grpc,libcef"
+PACKAGES="nlohmann_json,stb,spdlog,boost,sqlite,gtest,libffi,zxing,openssl,grpc,libcef"
 LINKAGE_FILTER="all"
 CONFIG_FILTER="all"
 JOBS="$(nproc 2>/dev/null || echo 4)"
