@@ -63,6 +63,21 @@ AsApp 再 bump 其 `third_party/prebuilt` 到同一 tag。
 
 单包：`.\scripts\build.ps1 -Arch x86 -Linkage static -Config debug -Packages sqlite,gtest`
 
+OpenCV 4.5.5（需先有归档）：
+
+- **切片**：正式交付 / SyncToPrebuilt / deps-\* **仅** `*-shared-release`（Win/Linux 相同）
+- **库形态**：**强制 STATIC**（配方覆盖；无 `opencv_*.dll` / `libopencv_*.so`）——供私有图像 facade 静态链入，避免与其它第三方 OpenCV 冲突
+- **布局**：`include/` + `lib/`（Windows 覆盖上游 `staticlib/`）；`find_package(OpenCV)` 用 `CMAKE_PREFIX_PATH=<slice>/opencv`
+- 勿把「切片 shared」理解成「OpenCV 动态库」；二者已解耦
+
+```powershell
+.\scripts\extract_archive.ps1 -Package opencv
+# 交付：切片必须 shared+release（勿用 build.ps1 默认 Linkage=static → 错切片名）
+.\scripts\build.ps1 -Arch x86 -Linkage shared -Config release -Packages opencv
+# 矩阵默认只在 shared-release 编 opencv；其它切片须 -IncludeOpencvNonShip
+# SyncToPrebuilt 对非 ship 切片会剔除 opencv（除非 -AllowOpencvNonShip）
+```
+
 特殊包：`build_openssl_windows.ps1` / `build_grpc_windows.ps1` / `package_libcef_windows.ps1`  
 Linux 对应：`build_openssl_linux.sh` / `build_grpc_linux.sh` / `package_libcef_linux.sh`
 

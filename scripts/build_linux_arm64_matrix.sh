@@ -3,6 +3,7 @@
 #
 # 默认包：CMake recipe + openssl + libffi + grpc + libcef
 # libcef：仅写入 linux-arm64-shared-release（官方 binary，非重编）
+# opencv：切片仅 shared-release + 库强制 STATIC；非 ship 须 --include-opencv-nonship
 #
 # 用法：
 #   ./scripts/build_linux_arm64_matrix.sh
@@ -15,7 +16,7 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 # shellcheck source=AsAppDepBuildParallel.sh
 source "$REPO_ROOT/scripts/AsAppDepBuildParallel.sh"
-PACKAGES="nlohmann_json,stb,spdlog,boost,sqlite,gtest,libffi,zxing,openssl,grpc,libcef"
+PACKAGES="nlohmann_json,stb,spdlog,boost,sqlite,gtest,libffi,zxing,opencv,openssl,grpc,libcef"
 LINKAGE_FILTER="all"
 CONFIG_FILTER="all"
 JOBS="$(nproc 2>/dev/null || echo 4)"
@@ -24,6 +25,7 @@ SKIP_OPENSSL=0
 SKIP_LIBFFI=0
 SKIP_GRPC=0
 SKIP_LIBCEF=0
+INCLUDE_OPENCV_NONSHIP=0
 CEF_BUNDLE_ROOT="${ASAPP_CEF_BUNDLE:-}"
 PREBUILT_ROOT="${ASAPP_PREBUILT_ROOT:-}"
 
@@ -39,6 +41,7 @@ while [[ $# -gt 0 ]]; do
     --skip-libffi) SKIP_LIBFFI=1; shift ;;
     --skip-grpc) SKIP_GRPC=1; shift ;;
     --skip-libcef) SKIP_LIBCEF=1; shift ;;
+    --include-opencv-nonship) INCLUDE_OPENCV_NONSHIP=1; shift ;;
     --cef-bundle-root) CEF_BUNDLE_ROOT="$2"; shift 2 ;;
     --clean) export ASAPP_DEP_CLEAN=1; shift ;;
     *) echo "Unknown arg: $1"; exit 1 ;;
@@ -126,11 +129,27 @@ for link in "${LINKAGES[@]}"; do
     echo "======== $slice ========"
     mkdir -p "$dist"
 
-    if [[ -n "$CMAKE_JOINED" ]]; then
-      "$REPO_ROOT/scripts/build.sh" \
-        --os linux --arch arm64 --linkage "$link" --config "$cfg" \
-        --packages "$CMAKE_JOINED" --install-root "$dist" --jobs "$JOBS" \
-        "${CLEAN_ARGS[@]}"
+    if [[ ${#CMAKE_PKGS[@]} -gt 0 ]]; then
+      slice_pkgs=("${CMAKE_PKGS[@]}")
+      # opencv 正式交付仅 shared-release；其它切片默认跳过，避免 --sync 装错
+      if [[ "$INCLUDE_OPENCV_NONSHIP" -ne 1 && ! ( "$link" == "shared" && "$cfg" == "release" ) ]]; then
+        filtered=()
+        for p in "${slice_pkgs[@]}"; do
+          if [[ "$p" == "opencv" ]]; then
+            echo "Skip opencv on $slice (ship slice=shared-release, library=STATIC; pass --include-opencv-nonship to force)"
+            continue
+          fi
+          filtered+=("$p")
+        done
+        slice_pkgs=("${filtered[@]}")
+      fi
+      if [[ ${#slice_pkgs[@]} -gt 0 ]]; then
+        joined="$(IFS=,; echo "${slice_pkgs[*]}")"
+        "$REPO_ROOT/scripts/build.sh" \
+          --os linux --arch arm64 --linkage "$link" --config "$cfg" \
+          --packages "$joined" --install-root "$dist" --jobs "$JOBS" \
+          "${CLEAN_ARGS[@]}"
+      fi
     fi
 
     # openssl 与 libffi 无依赖，可并行

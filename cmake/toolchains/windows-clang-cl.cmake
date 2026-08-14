@@ -22,11 +22,20 @@ endif()
 set(CMAKE_C_COMPILER_TARGET "${_ASAPP_CLANG_TARGET}" CACHE STRING "" FORCE)
 set(CMAKE_CXX_COMPILER_TARGET "${_ASAPP_CLANG_TARGET}" CACHE STRING "" FORCE)
 
+# OpenCV 等依赖 CMAKE_SYSTEM_PROCESSOR 做 CPU baseline；仅设 triple 时该项常为空
+if(_ASAPP_CLANG_TARGET MATCHES "^i686")
+    set(CMAKE_SYSTEM_PROCESSOR "x86" CACHE STRING "" FORCE)
+elseif(_ASAPP_CLANG_TARGET MATCHES "^aarch64|arm64")
+    set(CMAKE_SYSTEM_PROCESSOR "ARM64" CACHE STRING "" FORCE)
+else()
+    set(CMAKE_SYSTEM_PROCESSOR "AMD64" CACHE STRING "" FORCE)
+endif()
+
 # MSVC 兼容前端
 set(CMAKE_CXX_FLAGS_INIT "/EHsc")
 set(CMAKE_C_FLAGS_INIT "")
 
-# Win7 API 面
-add_compile_definitions(_WIN32_WINNT=0x0601 WINVER=0x0601)
+# Win7 API 面；NOMINMAX 避免 windows.h 的 min/max 宏污染
+add_compile_definitions(_WIN32_WINNT=0x0601 WINVER=0x0601 NOMINMAX)
 
-message(STATUS "windows-clang-cl toolchain: target=${_ASAPP_CLANG_TARGET}")
+message(STATUS "windows-clang-cl toolchain: target=${_ASAPP_CLANG_TARGET} processor=${CMAKE_SYSTEM_PROCESSOR}")

@@ -51,6 +51,7 @@ archives/**/*.zip
 sources/grpc/src/
 sources/boost/src/
 sources/libcef/src/
+sources/opencv/src/
 
 # ���ع��߶����ƣ�README ������
 tool/**/jom.exe

@@ -5,7 +5,7 @@
 #>
 param(
     [Parameter(Mandatory = $true)]
-    [ValidateSet("boost", "openssl")]
+    [ValidateSet("boost", "openssl", "opencv")]
     [string]$Package,
     [switch]$Force
 )
@@ -82,5 +82,34 @@ switch ($Package)
         New-Item -ItemType Directory -Force -Path (Split-Path $Dest -Parent) | Out-Null
         Move-Item -LiteralPath $Inner -Destination $Dest
         Write-Host "openssl -> $Dest"
+    }
+    "opencv"
+    {
+        $Zip = Join-Path $RepoRoot "archives\opencv\opencv-4.5.5.zip"
+        $Dest = Join-Path $RepoRoot "sources\opencv\src"
+        $Marker = Join-Path $Dest "CMakeLists.txt"
+        $ExpectSha = "FB16B734DB3A28E5119D513BD7C61EF417EDF3756165DC6259519BB9D23D04E2"
+        if ((Test-Path $Marker) -and (-not $Force))
+        {
+            Write-Host "opencv already extracted: $Dest"
+            return
+        }
+        if (-not (Test-Path $Zip)) { throw "missing archive: $Zip" }
+        Assert-Sha256 $Zip $ExpectSha
+        $Tmp = Join-Path $RepoRoot "build\_extract\opencv"
+        if (Test-Path $Tmp) { Remove-Item -Recurse -Force $Tmp }
+        New-Item -ItemType Directory -Force -Path $Tmp | Out-Null
+        Write-Host "Extracting $Zip (tar) ..."
+        tar -xf $Zip -C $Tmp
+        if ($LASTEXITCODE -ne 0) { throw "tar extract failed: $Zip" }
+        $Inner = Join-Path $Tmp "opencv-4.5.5"
+        if (-not (Test-Path (Join-Path $Inner "CMakeLists.txt")))
+        {
+            throw "unexpected opencv zip layout (need opencv-4.5.5/CMakeLists.txt)"
+        }
+        if (Test-Path $Dest) { Remove-Item -Recurse -Force $Dest }
+        New-Item -ItemType Directory -Force -Path (Split-Path $Dest -Parent) | Out-Null
+        Move-Item -LiteralPath $Inner -Destination $Dest
+        Write-Host "opencv -> $Dest"
     }
 }

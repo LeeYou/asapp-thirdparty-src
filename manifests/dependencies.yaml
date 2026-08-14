@@ -135,3 +135,17 @@ dependencies:
     owner: ""
     modules: []
     notes: "Governed zxing-cpp (C++ barcode readers + OLD writers). Pin v2.3.0 for C++17; do not upgrade to v3.x (C++20). Recipe cmake/packages/zxing.cmake; consume via asapp_ensure_zxing() → ZXing::ZXing."
+
+  - name: opencv
+    category: B
+    version: "4.5.5"
+    source_url: "https://github.com/opencv/opencv/archive/refs/tags/4.5.5.zip"
+    source_ref: "sources/opencv/src"
+    source_sha256: "FB16B734DB3A28E5119D513BD7C61EF417EDF3756165DC6259519BB9D23D04E2"
+    license: "Apache-2.0"
+    commercial_use_allowed: true
+    patch_count: 0
+    patch_dir: patches/opencv
+    owner: ""
+    modules: []
+    notes: "Governed OpenCV 4.5.5 for Win7. Trimmed BUILD_LIST=core,imgproc,imgcodecs; no CUDA/OpenCL/IPP. Recipe cmake/packages/opencv.cmake; extract via scripts/extract_archive.ps1 -Package opencv. TWO LAYERS: (1) SHIP SLICE=shared-release only (Win/Linux; -Linkage shared -Config release); (2) library ALWAYS STATIC (BUILD_SHARED_LIBS forced OFF)—no opencv DLLs/SOs; private-link into AsApp image facade to avoid third-party OpenCV version clashes; do not re-export cv::* to plugins. Non-ship slices are opt-in only—do not SyncToPrebuilt by mistake (build.ps1 defaults Linkage=static → wrong slice name)."

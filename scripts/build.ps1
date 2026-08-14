@@ -63,6 +63,23 @@ foreach ($pkg in ($Packages -split ",")) {
         & (Join-Path $PSScriptRoot "package_spdlog_headers.ps1") -SliceRoot $InstallRoot
         continue
     }
+    if ($pkg -eq "opencv") {
+        $opencvMarker = Join-Path $RepoRoot "sources\opencv\src\CMakeLists.txt"
+        if (-not (Test-Path $opencvMarker)) {
+            & (Join-Path $PSScriptRoot "extract_archive.ps1") -Package opencv
+        }
+        if (-not (Test-Path $opencvMarker)) {
+            throw "opencv source missing. Place archives/opencv/opencv-4.5.5.zip and run extract_archive.ps1 -Package opencv"
+        }
+        # 切片正式交付 = shared-release；库在配方内强制 STATIC（与切片 linkage 解耦）
+        Write-Host "opencv: ship_slice=shared-release; library_linkage=STATIC (forced in recipe)"
+        if ($Linkage -ne "shared" -or $Config -ne "release") {
+            Write-Warning ((
+                "opencv ship slice is shared-release (library is always static); building {0}-{1}-{2}-{3}. " +
+                "Do not SyncToPrebuilt as delivery unless this non-ship slice is intentional."
+            ) -f $Os, $Arch, $Linkage, $Config)
+        }
+    }
     if ($pkg -eq "boost") {
         $boostSrc = Resolve-AsAppDepBoostSourceRoot
         if (-not $boostSrc) {
@@ -108,6 +125,22 @@ foreach ($pkg in ($Packages -split ",")) {
         -CommandLine "cmake --build `"$PkgBuild`" --parallel $Jobs"
     Invoke-AsAppDepVsDevCommand -Arch $VsArch -VsDevCmdPath $VsDevCmdPath `
         -CommandLine "cmake --install `"$PkgBuild`""
+
+    # opencv：切片 shared-release ≠ 动态库；安装树禁止 dll/so
+    if ($pkg -eq "opencv") {
+        $dyn = @(Get-ChildItem -LiteralPath $PkgDest -Recurse -File -ErrorAction SilentlyContinue |
+            Where-Object { $_.Extension -match '^\.(dll|so|dylib)$' -or $_.Name -match '\.so\.' })
+        if ($dyn.Count -gt 0) {
+            $list = ($dyn | ForEach-Object { $_.FullName }) -join "`n  "
+            throw "opencv must be STATIC-only after install; found dynamic libs:`n  $list"
+        }
+        $libs = @(Get-ChildItem -LiteralPath (Join-Path $PkgDest "lib") -File -ErrorAction SilentlyContinue |
+            Where-Object { $_.Extension -in @(".lib", ".a") -or $_.Name -like "libopencv*" })
+        if ($libs.Count -lt 1) {
+            throw "opencv static install missing: expected .lib/.a under $PkgDest\lib"
+        }
+        Write-Host "opencv install OK: static libs only under $PkgDest (no dll/so)"
+    }
 }
 
 Write-Host "Done. Slice root: $InstallRoot"

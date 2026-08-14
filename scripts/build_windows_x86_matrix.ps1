@@ -6,7 +6,8 @@
 .DESCRIPTION
   顺序：
   1) header-only（nlohmann/stb/spdlog/boost）布局到四切片
-  2) sqlite/gtest/libffi/zxing 经 build.ps1（VsDevCmd x86）编译四组合
+  2) sqlite/gtest/libffi/zxing/opencv 经 build.ps1（VsDevCmd x86）编译四组合
+     （opencv：切片仅 shared-release + 库强制 STATIC；非 ship 须 -IncludeOpencvNonShip）
   3) openssl / grpc 专用脚本四组合
   4) libcef → 仅 windows-x86-shared-release（官方 binary）
   5) 可选 SyncToPrebuilt
@@ -14,12 +15,14 @@
   权威：AsApp docs/enterprisev3.0/third_party/09-主交付编译矩阵.md
 #>
 param(
-    [string]$Packages = "nlohmann_json,stb,spdlog,boost,sqlite,gtest,libffi,zxing,openssl,grpc,libcef",
+    [string]$Packages = "nlohmann_json,stb,spdlog,boost,sqlite,gtest,libffi,zxing,opencv,openssl,grpc,libcef",
     [string]$PrebuiltRoot = "",
     [switch]$SkipGrpc,
     [switch]$SkipOpenssl,
     [switch]$SkipLibcef,
     [switch]$SyncToPrebuilt,
+    # opencv 默认只编 shared-release 切片（库仍强制 static）；打开后才编其它切片
+    [switch]$IncludeOpencvNonShip,
     [ValidateSet("all", "static", "shared")]
     [string]$LinkageFilter = "all",
     [ValidateSet("all", "debug", "release")]
@@ -52,7 +55,7 @@ if ($ConfigFilter -ne "all") { $Configs = @($ConfigFilter) }
 
 $PkgList = @($Packages -split "," | ForEach-Object { $_.Trim() } | Where-Object { $_ })
 $HeaderPkgs = @("nlohmann_json", "stb", "spdlog", "boost") | Where-Object { $PkgList -contains $_ }
-$CmakePkgs = @("sqlite", "gtest", "libffi", "zxing") | Where-Object { $PkgList -contains $_ }
+$CmakePkgs = @("sqlite", "gtest", "libffi", "zxing", "opencv") | Where-Object { $PkgList -contains $_ }
 $WantOpenssl = ($PkgList -contains "openssl") -and (-not $SkipOpenssl)
 $WantGrpc = ($PkgList -contains "grpc") -and (-not $SkipGrpc)
 $WantLibcef = ($PkgList -contains "libcef") -and (-not $SkipLibcef)
@@ -97,10 +100,23 @@ foreach ($link in $Linkages)
 
         if ($CmakePkgs.Count -gt 0)
         {
-            $joined = ($CmakePkgs -join ",")
-            & (Join-Path $PSScriptRoot "build.ps1") `
-                -Os windows -Arch x86 -Linkage $link -Config $cfg `
-                -Packages $joined -InstallRoot $dist -Jobs $Jobs
+            # opencv 正式交付仅 shared-release；其它切片默认跳过，避免 SyncToPrebuilt 装错
+            $slicePkgs = @($CmakePkgs)
+            if (-not $IncludeOpencvNonShip -and -not ($link -eq "shared" -and $cfg -eq "release"))
+            {
+                if ($slicePkgs -contains "opencv")
+                {
+                    Write-Host "Skip opencv on $slice (ship slice=shared-release, library=STATIC; pass -IncludeOpencvNonShip to force)"
+                    $slicePkgs = @($slicePkgs | Where-Object { $_ -ne "opencv" })
+                }
+            }
+            if ($slicePkgs.Count -gt 0)
+            {
+                $joined = ($slicePkgs -join ",")
+                & (Join-Path $PSScriptRoot "build.ps1") `
+                    -Os windows -Arch x86 -Linkage $link -Config $cfg `
+                    -Packages $joined -InstallRoot $dist -Jobs $Jobs
+            }
         }
 
         if ($WantOpenssl)

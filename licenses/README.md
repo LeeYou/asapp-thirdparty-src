@@ -16,6 +16,8 @@
 | gRPC（顶层 LICENSE，不含 third_party 嵌套树） | [grpc/LICENSE](grpc/LICENSE) |
 | stb | [stb/LICENSE.txt](stb/LICENSE.txt) |
 | Chromium Embedded Framework (libcef) | [libcef/LICENSE.txt](libcef/LICENSE.txt) |
+| zxing-cpp | [zxing-LICENSE.txt](zxing-LICENSE.txt) |
+| OpenCV | [opencv-LICENSE.txt](opencv-LICENSE.txt) |
 
 ## 维护
 

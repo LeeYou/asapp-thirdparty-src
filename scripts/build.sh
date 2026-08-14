@@ -91,6 +91,16 @@ build_one_cmake_pkg() {
   mkdir -p "$pkg_build" "$pkg_dest"
 
   echo "Building: $pkg (pkg_jobs=$pkg_jobs)"
+  if [[ "$pkg" == "opencv" && ! -f "$REPO_ROOT/sources/opencv/src/CMakeLists.txt" ]]; then
+    bash "$REPO_ROOT/scripts/extract_archive.sh" opencv
+  fi
+  if [[ "$pkg" == "opencv" ]]; then
+    echo "opencv: ship_slice=shared-release; library_linkage=STATIC (forced in recipe)"
+    if [[ "$LINKAGE" != "shared" || "$CONFIG" != "release" ]]; then
+      echo "WARNING: opencv ship slice is shared-release (library is always static); building ${OS}-${ARCH}-${LINKAGE}-${CONFIG}." >&2
+      echo "WARNING: Do not SyncToPrebuilt as delivery unless this non-ship slice is intentional." >&2
+    fi
+  fi
   # 使用 -DCMAKE_TOOLCHAIN_FILE（兼容 CMake < 3.21；勿用 --toolchain，旧版会把路径误当成 -S）
   cmake -G Ninja \
     -S "$REPO_ROOT/cmake" \
@@ -106,6 +116,21 @@ build_one_cmake_pkg() {
 
   asapp_dep_cmake_build "$pkg_build" "$pkg_jobs"
   cmake --install "$pkg_build"
+
+  # opencv：切片 shared-release ≠ 动态库；安装树禁止 dll/so
+  if [[ "$pkg" == "opencv" ]]; then
+    dyn="$(find "$pkg_dest" \( -name '*.dll' -o -name '*.so' -o -name '*.so.*' -o -name '*.dylib' \) 2>/dev/null || true)"
+    if [[ -n "$dyn" ]]; then
+      echo "ERROR: opencv must be STATIC-only after install; found dynamic libs:" >&2
+      echo "$dyn" >&2
+      return 1
+    fi
+    if ! find "$pkg_dest/lib" \( -name '*.a' -o -name '*.lib' -o -name 'libopencv*' \) 2>/dev/null | grep -q .; then
+      echo "ERROR: opencv static install missing .a/.lib under $pkg_dest/lib" >&2
+      return 1
+    fi
+    echo "opencv install OK: static libs only under $pkg_dest (no dll/so)"
+  fi
 }
 
 IFS=',' read -ra PKGS <<< "$PACKAGES"
